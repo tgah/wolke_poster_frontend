@@ -1,0 +1,237 @@
+You are a senior frontend engineer shipping a production-grade web app UI for Wolke AI. Build a desktop-first, modern, professional UI that matches the provided reference screenshot’s structure: left navigation panel + central poster preview + right control panel.
+Non-negotiables
+Two pages only in v1:
+Login page
+Poster Generator page (post-login redirect)
+Single-page app feel on the Poster Generator page (all core actions on one screen).
+Include placeholders for future pages/features (navigation items, routes stubbed but not functional).
+English-only for v1 UI labels and UX copy.
+The UI must look premium, clean, and simple for boomer store owners (low clutter, obvious actions, large touchpoints, predictable behavior).
+Integrate with backend API exactly as defined in the OpenAPI spec file 
+message
+.
+1) Tech Stack & Project Setup
+1.1 Framework
+Use Next.js (App Router) + TypeScript.
+Target desktop widths first; responsive is nice but not the priority.
+1.2 UI system (choose for speed and quality)
+Use TailwindCSS + shadcn/ui (fast, consistent, professional).
+Use lucide-react icons.
+1.3 Data fetching / state
+Use TanStack React Query for server state (products list, poster CRUD, background generation, export).
+Use minimal local state (React state) for form inputs. No Redux.
+1.4 API client
+Implement a typed API layer:
+fetcher with base URL env var.
+Attaches Authorization: Bearer <token> from client storage.
+Store token in memory + localStorage (v1 acceptable). Add a small abstraction to swap to httpOnly cookies later if desired.
+2) Routes / Pages
+2.1 /login
+UI
+Clean login form: email, password, and optional 2FA code field (collapsed by default, expand if backend says required or user has it enabled).
+Submit -> call /auth/login 
+message
+.
+On success:
+Save token
+Redirect to /poster-generator
+Behavior
+Show validation errors inline.
+Show transient errors as toasts.
+2.2 /poster-generator
+Single main app screen with:
+Left sidebar navigation (fixed)
+Center poster preview (dominant)
+Right controls panel (form + actions)
+3) Layout Spec (Sizing & Proportions)
+Match the reference screenshot style: left nav + center preview + right controls.
+Use a fixed proportional grid for desktop:
+Left Nav: ~18% width (min 220px, max 280px)
+Center Preview: ~52% width
+Right Panel: ~30% width (min 360px)
+Overall:
+Full height viewport layout (h-screen)
+Left nav fixed height, internal scroll allowed
+Right panel scroll allowed if content exceeds height
+Center preview vertically centered, with mild padding
+Important: Implement these as explicit Tailwind layout constraints so there is no ambiguity during development.
+4) Navigation / App Shell
+4.1 Left Sidebar
+Top area includes:
+App logo/name “Wolke AI”
+A Settings entry at the top (placeholder) that will later include logo/branding (non-functional or minimal stub UI).
+Main nav items (placeholders):
+Poster Generator (active)
+Products (placeholder)
+Templates (placeholder)
+Audit Logs (placeholder)
+Visual style:
+Unsaturated teal background
+Bluish white content background elsewhere
+Selected nav item clearly highlighted
+Simple icons
+5) Poster Generator Page UX (Core)
+5.1 Key UX rule: Expensive background vs cheap overlays
+Background generation is expensive:
+Only triggers when user presses Enter (while theme input is focused) OR clicks “Generate Background”.
+While generating: disable generate button + show spinner overlay on preview.
+If backend doesn’t return a completion signal quickly, keep disabled for a default 25 seconds, then re-enable with a warning toast (“Generation may still be running.”).
+Overlay edits are cheap:
+Sale title, product selection, price edits update the poster preview UI instantly (client-side preview only).
+These changes do NOT trigger background generation.
+5.2 Theme input + controls (single line)
+Right panel top section:
+Theme text field (single line)
+Primary action: “Generate Background” (subtle button, not overly colored)
+Next to it: “Upload Background” (small, neutral button)
+Behavior
+Enter key triggers same as clicking Generate Background only when theme field focused.
+If user tries to generate again with same theme immediately:
+Show small popover confirmation: “You just generated this background. Generate again?”
+If user confirms: proceed (backend will enforce rate limiting; frontend still tries to prevent accidental repeats).
+6) Poster Building Controls (Right Panel)
+6.1 Template selection (simple)
+Place below theme section:
+Dropdown: Template: 2 Products / 3 Products
+In v1, keep it simple (dropdown is fine). Suggestion: default to 2-product template.
+6.2 Products CSV import (v1)
+You want a local file picker to upload CSV.
+Add a “Products” section with:
+Button: “Import Products CSV”
+On click: opens native file picker, user chooses .csv
+Upload via multipart to /products/import 
+message
+Show import results summary:
+rows processed, succeeded, failed
+On success: refresh products list (GET /products)
+6.3 Product selection (2 or 3 slots)
+Once products exist:
+For each product slot (2 or 3 depending on template):
+“Product 1” dropdown search (type-to-filter)
+“New price” numeric input (only new price)
+Display name MUST always be from CSV/backend (no overrides in v1)
+Important: Since product images live locally on the machine where app runs, the UI will rely on backend-provided image_path and an asset URL helper (see below).
+6.4 Sale title + disclaimer + dates
+Sale title input (single line)
+Disclaimer input: default placeholder “Nur solange der Vorrat reicht”
+Dates input (single line, free text for v1; e.g. “01.12–24.12”)
+These are passed in poster create/update payload (see integration plan).
+7) Poster Preview (Center)
+7.1 Preview philosophy (v1)
+Do NOT implement a complex canvas editor.
+Use a clean preview component that:
+Shows background image (generated or uploaded)
+Overlays:
+Sale title
+Product blocks (2 or 3)
+Price labels
+Store logo
+Disclaimer + dates
+Layout should match your established template style: tidy, poster-like, not chaotic.
+7.2 Assets
+Backend provides:
+background_image_url (via poster response) 
+message
+store_logo_url (poster response)
+product may have image_path
+Use backend endpoint /assets/{asset_id}/url when needed 
+message
+.
+If product images are referenced by path, request backend to expose them via the assets system; front-end should be written to consume a URL (not raw filesystem path) for safety.
+7.3 Loading overlays
+While generating background:
+Dim preview
+Spinner
+Text: “Generating background…”
+8) Backend Integration Contract (Strict)
+Use the OpenAPI spec file as source of truth 
+message
+.
+8.1 Auth
+POST /auth/login -> returns { access_token, token_type } 
+message
+GET /auth/me to fetch current user and confirm session 
+message
+8.2 Products
+POST /products/import (multipart form file upload) 
+message
+GET /products?search=... for dropdown search 
+message
+8.3 Poster lifecycle (Important)
+The backend’s background generation endpoint is tied to a poster id:
+POST /posters creates a poster 
+message
+POST /posters/{poster_id}/background/generate triggers background generation 
+message
+PATCH /posters/{poster_id} updates sale title/products/theme text 
+message
+POST /posters/{poster_id}/export exports final image 
+message
+Required frontend flow (because of API shape)
+Even if “generate directly”, FE must ensure there is a poster_id.
+Implementation plan:
+On Poster Generator page load:
+Create a “working poster draft” as soon as minimum required fields are available (template + sale_title + products).
+OR create with defaults once user selects first template + at least 1 product.
+When user hits “Generate Background”:
+If poster not created yet, create it first via POST /posters (with selected template_key, sale_title, selected products, and theme_text).
+Then call /posters/{id}/background/generate with { theme_text }. 
+message
+Polling: You said “none” (no polling). Therefore:
+After generate call returns, refresh poster by calling GET /posters/{id}.
+If background URL still missing, show toast: “Background is generating; please wait and try refresh.”
+(Note: if backend returns immediately and generation is async, the FE needs some way to know completion. If backend is synchronous for generation, this is fine.)
+When user changes products/prices/title:
+Update local preview instantly.
+Optionally PATCH /posters/{id} on “Save” or on debounce (v1: simplest is “Save Changes” button; but if you want no extra button, do a 500ms debounce).
+8.4 Export
+User wants immediate download, formats png/jpg, and multiple resolutions.
+But backend spec currently supports:
+format pattern: ^(png|pdf)$
+resolution: digital|print 
+message
+Frontend must implement what backend supports.
+Implement buttons:
+Download Digital PNG
+Download Print PNG
+If JPG is required, coordinate with backend to add it; FE should have placeholders (“JPG (coming soon)”).
+After export call, backend likely returns an asset id/url; use /assets/{asset_id}/url if applicable 
+message
+.
+Trigger browser download via <a download>.
+9) Settings Placeholder (Top of Nav)
+Minimal v1:
+Modal or simple panel accessible from top of sidebar.
+Allows uploading store logo (future integration; if no endpoint exists yet, store locally in FE state and show in preview with note “Not saved server-side in v1”).
+Do not block v1 delivery if backend lacks logo endpoints—keep it a placeholder, but make the UI look real.
+10) Error Handling & UX Polish
+Toasts for transient (network errors, validation errors).
+Inline validation for required fields:
+Sale title required
+At least 1 product required (backend requires minItems=1)
+Theme length min 5 (per schema) 
+message
+Disable actions when required fields are missing.
+11) Analytics Hooks (Stub)
+Implement a simple event logger interface (no backend wiring required):
+track("generate_background_clicked", {...})
+track("background_uploaded", {...})
+track("export_clicked", {...})
+track("csv_imported", {...})
+Default implementation logs to console; add TODO for later.
+12) Deliverables
+Produce:
+Next.js app with /login and /poster-generator
+Full layout and UX as specified
+Typed API client aligned with OpenAPI 
+message
+Clean component structure:
+components/layout/Sidebar.tsx
+components/builder/ThemeControls.tsx
+components/builder/TemplateSelect.tsx
+components/builder/ProductSlots.tsx
+components/builder/PosterPreview.tsx
+components/builder/ExportButtons.tsx
+Robust loading/disabled states for background generation
+CSV import with real file picker and upload
+A visually premium UI consistent with teal + bluish-white scheme
