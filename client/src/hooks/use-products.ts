@@ -15,10 +15,7 @@ export function useProducts() {
 export function useImportProducts() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (file: File) => {
-      const formData = new FormData();
-      formData.append("file", file);
-      
+    mutationFn: async (formData: FormData) => {
       const res = await fetch(api.products.import.path, {
         method: "POST",
         body: formData,

@@ -110,14 +110,26 @@ export async function registerRoutes(
       });
       
       const user = req.user as any;
-      const productsToInsert = records.map((record: any) => ({
+      const template = req.body.template || "2_products";
+      const customFields = {
+        label1: req.body.label1 || "",
+        label2: req.body.label2 || "",
+        label3: req.body.label3 || "",
+        label4: req.body.label4 || "",
+      };
+
+      const productsToInsert = records.map((record: any, index: number) => ({
         userId: user.id,
         name: record.name || record.Name || "Unnamed Product",
         price: parseFloat(record.price || record.Price || "0").toString(),
         imagePath: record.image_path || record.Image,
+        slotIndex: index % parseInt(template.split("_")[0]),
       }));
 
       await storage.bulkCreateProducts(productsToInsert);
+      
+      // Log custom fields for processing (could be stored on poster)
+      console.log("CSV Import - Template:", template, "Custom Fields:", customFields);
       
       res.json({
         processed: records.length,

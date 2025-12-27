@@ -1,13 +1,13 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Sidebar } from "@/components/Sidebar";
 import { PosterPreview } from "@/components/PosterPreview";
 import { usePoster, useUpdatePoster, useGenerateBackground, useCreatePoster } from "@/hooks/use-posters";
-import { useProducts } from "@/hooks/use-products";
+import { useProducts, useImportProducts } from "@/hooks/use-products";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Wand2, Download, Save, Loader2, Check } from "lucide-react";
+import { Wand2, Download, Save, Loader2, Check, Upload } from "lucide-react";
 import { motion } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
 import { InsertPoster } from "@shared/routes";
@@ -34,9 +34,19 @@ export default function PosterGenerator() {
   const { mutate: createPoster } = useCreatePoster();
   const { mutate: updatePoster } = useUpdatePoster();
   const { mutate: generateBackground, isPending: isGenerating } = useGenerateBackground();
+  const { mutate: importProducts, isPending: isImporting } = useImportProducts();
   const { toast } = useToast();
 
+  const bgFileInputRef = useRef<HTMLInputElement>(null);
+  const csvFileInputRef = useRef<HTMLInputElement>(null);
+
   const [localState, setLocalState] = useState<InsertPoster>(emptyPoster);
+  const [customFields, setCustomFields] = useState({
+    label1: "",
+    label2: "",
+    label3: "",
+    label4: ""
+  });
 
   // Initialize poster if none exists
   useEffect(() => {
@@ -64,6 +74,7 @@ export default function PosterGenerator() {
   const saveChanges = () => {
     if (!posterId) return;
     updatePoster({ id: posterId, ...localState });
+    toast({ title: "Saved", description: "Your changes have been saved." });
   };
 
   const handleGenerate = () => {
@@ -73,11 +84,43 @@ export default function PosterGenerator() {
   };
 
   const toggleProduct = (productId: number) => {
+    const maxProducts = localState.templateKey === "4_products" ? 4 : localState.templateKey === "3_products" ? 3 : 2;
     const currentIds = localState.productIds || [];
     const newIds = currentIds.includes(productId)
       ? currentIds.filter(id => id !== productId)
-      : [...currentIds, productId].slice(0, 3); // Max 3 products
+      : [...currentIds, productId].slice(0, maxProducts);
     handleUpdate("productIds", newIds);
+  };
+
+  const handleBackgroundUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const dataUrl = event.target?.result as string;
+      if (posterId) {
+        updatePoster({ id: posterId, backgroundImageUrl: dataUrl });
+        toast({ title: "Background Uploaded", description: "Your custom background has been applied." });
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleCSVUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append("file", file);
+    importProducts(formData, {
+      onSuccess: () => {
+        toast({ title: "Products Imported", description: "CSV products have been imported successfully." });
+      },
+      onError: (error) => {
+        toast({ title: "Import Error", description: "Failed to import CSV file.", variant: "destructive" });
+      }
+    });
   };
 
   if (!posterId || isPosterLoading) {
@@ -122,23 +165,40 @@ export default function PosterGenerator() {
                   value={localState.themeText}
                   onChange={(e) => handleUpdate("themeText", e.target.value)}
                 />
-                <Button 
-                  className="w-full bg-gradient-to-r from-teal-400 to-blue-500 hover:from-teal-500 hover:to-blue-600 text-white border-0 shadow-lg shadow-blue-500/20"
-                  onClick={handleGenerate}
-                  disabled={isGenerating || localState.status === 'generating'}
-                >
-                  {isGenerating || localState.status === 'generating' ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Generating...
-                    </>
-                  ) : (
-                    <>
-                      <Wand2 className="w-4 h-4 mr-2" />
-                      Generate Background
-                    </>
-                  )}
-                </Button>
+                <div className="flex gap-2">
+                  <Button 
+                    className="flex-1 bg-gradient-to-r from-teal-400 to-blue-500 hover:from-teal-500 hover:to-blue-600 text-white border-0 shadow-lg shadow-blue-500/20 text-sm"
+                    onClick={handleGenerate}
+                    disabled={isGenerating || localState.status === 'generating'}
+                  >
+                    {isGenerating || localState.status === 'generating' ? (
+                      <>
+                        <Loader2 className="w-3 h-3 mr-2 animate-spin" />
+                        Generating...
+                      </>
+                    ) : (
+                      <>
+                        <Wand2 className="w-3 h-3 mr-2" />
+                        Generate
+                      </>
+                    )}
+                  </Button>
+                  <Button 
+                    className="px-3 text-sm"
+                    variant="outline"
+                    onClick={() => bgFileInputRef.current?.click()}
+                  >
+                    <Upload className="w-3 h-3 mr-1" />
+                    Upload
+                  </Button>
+                  <input
+                    ref={bgFileInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleBackgroundUpload}
+                  />
+                </div>
               </div>
             </section>
 
@@ -175,14 +235,58 @@ export default function PosterGenerator() {
 
             {/* Products Selection */}
             <section className="space-y-4">
+              <div>
+                <Label className="text-base font-semibold block mb-3">Select Products</Label>
+                <div className="space-y-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="template" className="text-xs text-muted-foreground">Template</Label>
+                    <Select value={localState.templateKey} onValueChange={(value) => handleUpdate("templateKey", value)}>
+                      <SelectTrigger id="template">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="2_products">2 Products</SelectItem>
+                        <SelectItem value="3_products">3 Products</SelectItem>
+                        <SelectItem value="4_products">4 Products</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Button 
+                    className="w-full text-sm"
+                    variant="outline"
+                    onClick={() => csvFileInputRef.current?.click()}
+                    disabled={isImporting}
+                  >
+                    {isImporting ? (
+                      <>
+                        <Loader2 className="w-3 h-3 mr-2 animate-spin" />
+                        Importing...
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="w-3 h-3 mr-2" />
+                        Import CSV
+                      </>
+                    )}
+                  </Button>
+                  <input
+                    ref={csvFileInputRef}
+                    type="file"
+                    accept=".csv"
+                    className="hidden"
+                    onChange={handleCSVUpload}
+                  />
+                </div>
+              </div>
+
               <div className="flex items-center justify-between">
-                <Label className="text-base font-semibold">Select Products</Label>
+                <span className="text-xs text-muted-foreground">Selected</span>
                 <span className="text-xs bg-slate-100 px-2 py-1 rounded-full text-slate-600 font-medium">
-                  {localState.productIds.length}/3
+                  {localState.productIds.length}/{localState.templateKey === "4_products" ? 4 : localState.templateKey === "3_products" ? 3 : 2}
                 </span>
               </div>
               
-              <div className="grid grid-cols-1 gap-2 max-h-[300px] overflow-y-auto pr-1">
+              <div className="grid grid-cols-1 gap-2 max-h-[250px] overflow-y-auto pr-1">
                 {products.map((product: any) => {
                   const isSelected = localState.productIds.includes(product.id);
                   return (
@@ -195,6 +299,7 @@ export default function PosterGenerator() {
                           ? "bg-primary/5 border-primary shadow-sm" 
                           : "bg-white border-transparent hover:bg-slate-50 border-slate-100"}
                       `}
+                      data-testid={`product-item-${product.id}`}
                     >
                       <div className="w-10 h-10 bg-slate-200 rounded-md overflow-hidden shrink-0">
                         <img 
@@ -210,6 +315,23 @@ export default function PosterGenerator() {
                     </div>
                   );
                 })}
+              </div>
+
+              {/* Custom Fields 2x2 Grid */}
+              <div className="grid grid-cols-2 gap-3 mt-4">
+                {(['label1', 'label2', 'label3', 'label4'] as const).map((field) => (
+                  <div key={field} className="space-y-1.5">
+                    <Label htmlFor={field} className="text-xs text-muted-foreground capitalize">{field}</Label>
+                    <Input 
+                      id={field}
+                      placeholder={`Enter ${field}`}
+                      value={customFields[field]}
+                      onChange={(e) => setCustomFields(prev => ({ ...prev, [field]: e.target.value }))}
+                      className="text-sm"
+                      data-testid={`input-${field}`}
+                    />
+                  </div>
+                ))}
               </div>
             </section>
           </div>
