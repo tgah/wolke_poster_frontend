@@ -3,20 +3,21 @@ import OpenAI, { toFile } from "openai";
 import { Buffer } from "node:buffer";
 
 export const openai = new OpenAI({
-  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+  apiKey: process.env.OPENAI_API_KEY,
+  // Only set baseURL if you need a proxy, otherwise use OpenAI's default
+  ...(process.env.OPENAI_BASE_URL && { baseURL: process.env.OPENAI_BASE_URL }),
 });
 
 /**
  * Generate an image and return as Buffer.
- * Uses gpt-image-1 model via Replit AI Integrations.
+ * Uses OpenAI's image generation API.
  */
 export async function generateImageBuffer(
   prompt: string,
   size: "1024x1024" | "512x512" | "256x256" = "1024x1024"
 ): Promise<Buffer> {
   const response = await openai.images.generate({
-    model: "gpt-image-1",
+    model: "dall-e-3", // Use standard OpenAI model
     prompt,
     size,
   });
@@ -26,7 +27,7 @@ export async function generateImageBuffer(
 
 /**
  * Edit/combine multiple images into a composite.
- * Uses gpt-image-1 model via Replit AI Integrations.
+ * Uses OpenAI's image editing API.
  */
 export async function editImages(
   imageFiles: string[],
@@ -42,8 +43,8 @@ export async function editImages(
   );
 
   const response = await openai.images.edit({
-    model: "gpt-image-1",
-    image: images,
+    model: "dall-e-2", // Use standard OpenAI model for editing
+    image: images[0], // OpenAI edit API takes single image
     prompt,
   });
 

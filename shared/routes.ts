@@ -17,21 +17,29 @@ export const errorSchemas = {
   }),
 };
 
+// Background Response Schema
+const backgroundSchema = z.object({
+  id: z.string().uuid(),
+  status: z.enum(['generating', 'completed', 'failed']),
+  url: z.string().optional(),
+  created_at: z.string(),
+  error: z.string().optional(),
+});
+
 export const api = {
   auth: {
     login: {
       method: 'POST' as const,
       path: '/api/auth/login',
       input: z.object({
-        username: z.string(),
+        email: z.string().email(),
         password: z.string(),
-        code: z.string().optional(), // 2FA code placeholder
+        totp_code: z.string().optional(),
       }),
       responses: {
         200: z.object({
           access_token: z.string(),
           token_type: z.string(),
-          user: z.any(), // User object
         }),
         401: errorSchemas.unauthorized,
       },
@@ -40,17 +48,54 @@ export const api = {
       method: 'GET' as const,
       path: '/api/auth/me',
       responses: {
-        200: z.any(), // User object
+        200: z.any(),
         401: errorSchemas.unauthorized,
       },
     },
     logout: {
-        method: 'POST' as const,
-        path: '/api/auth/logout',
-        responses: {
-            200: z.object({ message: z.string() })
-        }
+      method: 'POST' as const,
+      path: '/api/auth/logout',
+      responses: {
+        200: z.object({ message: z.string() })
+      }
     }
+  },
+  backgrounds: {
+    list: {
+      method: 'GET' as const,
+      path: '/api/backgrounds',
+      responses: {
+        200: z.array(backgroundSchema),
+      },
+    },
+    get: {
+      method: 'GET' as const,
+      path: '/api/backgrounds/:id',
+      responses: {
+        200: backgroundSchema,
+        404: errorSchemas.notFound,
+      },
+    },
+    generate: {
+      method: 'POST' as const,
+      path: '/api/backgrounds/generate',
+      input: z.object({
+        theme_text: z.string().min(5),
+      }),
+      responses: {
+        202: backgroundSchema,
+        400: errorSchemas.validation,
+      },
+    },
+    upload: {
+      method: 'POST' as const,
+      path: '/api/backgrounds/upload',
+      // multipart/form-data: file
+      responses: {
+        200: backgroundSchema,
+        400: errorSchemas.validation,
+      },
+    },
   },
   products: {
     list: {
@@ -66,7 +111,6 @@ export const api = {
     import: {
       method: 'POST' as const,
       path: '/api/products/import',
-      // Multipart form data not strictly validated by zod here, handled in route
       responses: {
         200: z.object({
           processed: z.number(),
@@ -80,7 +124,7 @@ export const api = {
     create: {
       method: 'POST' as const,
       path: '/api/posters',
-      input: insertPosterSchema,
+      // multipart/form-data with background_id, template_key, product images
       responses: {
         201: z.any(), // Poster
         400: errorSchemas.validation,
@@ -100,15 +144,6 @@ export const api = {
       input: insertPosterSchema.partial(),
       responses: {
         200: z.any(), // Poster
-        404: errorSchemas.notFound,
-      },
-    },
-    generateBackground: {
-      method: 'POST' as const,
-      path: '/api/posters/:id/background/generate',
-      input: z.object({ themeText: z.string() }),
-      responses: {
-        200: z.object({ message: z.string() }), // Async initiation
         404: errorSchemas.notFound,
       },
     },

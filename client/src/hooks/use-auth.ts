@@ -1,47 +1,118 @@
+// client/src/hooks/use-auth.ts
+
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@shared/routes";
 import { useLocation } from "wouter";
 import { z } from "zod";
+import { setAccessToken, clearAccessToken, apiFetch } from "@/lib/api-client";
 
 type LoginInput = z.infer<typeof api.auth.login.input>;
+
+async function parseJsonSafely(res: Response) {
+  const text = await res.text();
+  if (!text) return null;
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
+}
 
 export function useAuth() {
   const queryClient = useQueryClient();
   const [, setLocation] = useLocation();
 
+  // Fetch current user session
   const userQuery = useQuery({
     queryKey: [api.auth.me.path],
     queryFn: async () => {
-      const res = await fetch(api.auth.me.path);
-      if (res.status === 401) return null;
-      if (!res.ok) throw new Error("Failed to fetch user");
-      return await res.json();
+      const res = await apiFetch(api.auth.me.path, { method: "GET" });
+
+      // apiFetch handles 401 redirect + token clearing globally.
+      if (!res.ok) {
+        // For non-401 errors, surface something useful
+        const payload = await parseJsonSafely(res);
+        const msg =
+          payload?.message ||
+          payload?.error ||
+          (await res.text()) ||
+          res.statusText;
+        throw new Error(`${res.status}: ${msg}`);
+      }
+
+      return (await res.json()) as unknown;
     },
+    // If /auth/me fails due to auth, the app should treat user as logged out.
     retry: false,
   });
 
+  // Login: POST /auth/login -> store token -> GET /auth/me -> populate cache -> go home
   const loginMutation = useMutation({
-    mutationFn: async (data: LoginInput) => {
-      const res = await fetch(api.auth.login.path, {
-        method: "POST",
+    mutationFn: async (credentials: LoginInput) => {
+      const res = await apiFetch(api.auth.login.path, {
+        method: api.auth.login.method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        body: JSON.stringify(credentials),
       });
-      if (!res.ok) throw new Error("Login failed");
-      return await res.json();
+
+      if (!res.ok) {
+        const payload = await parseJsonSafely(res);
+        const msg =
+          payload?.message ||
+          payload?.error ||
+          (await res.text()) ||
+          res.statusText;
+        throw new Error(`${res.status}: ${msg}`);
+      }
+
+      const data = (await res.json()) as { access_token: string; token_type?: string };
+
+      if (!data?.access_token) {
+        throw new Error("Login succeeded but no access_token was returned.");
+      }
+
+      // Store token
+      setAccessToken(data.access_token);
+
+      // Immediately fetch /auth/me to populate user state
+      const meRes = await apiFetch(api.auth.me.path, { method: "GET" });
+      if (!meRes.ok) {
+        const payload = await parseJsonSafely(meRes);
+        const msg =
+          payload?.message ||
+          payload?.error ||
+          (await meRes.text()) ||
+          meRes.statusText;
+
+        // If we can't verify session, treat it as invalid
+        clearAccessToken();
+        throw new Error(`${meRes.status}: ${msg}`);
+      }
+
+      const me = (await meRes.json()) as unknown;
+      return me;
     },
-    onSuccess: (data) => {
-      queryClient.setQueryData([api.auth.me.path], data.user);
-      setLocation("/poster-generator");
+    onSuccess: (me) => {
+      // Populate the user query cache directly
+      queryClient.setQueryData([api.auth.me.path], me);
+
+      // Move user into the app
+      setLocation("/");
     },
   });
 
   const logoutMutation = useMutation({
     mutationFn: async () => {
-      await fetch(api.auth.logout.path, { method: "POST" });
-    },
-    onSuccess: () => {
-      queryClient.setQueryData([api.auth.me.path], null);
+      // Backend may or may not require this; still fine to call.
+      // Even if it fails, we still clear local session.
+      try {
+        await apiFetch(api.auth.logout.path, { method: api.auth.logout.method });
+      } catch {
+        // ignore
+      }
+
+      clearAccessToken();
+      queryClient.clear();
       setLocation("/login");
     },
   });

@@ -7,7 +7,7 @@ import {
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc } from "drizzle-orm";
-import { chatStorage, type IChatStorage } from "./replit_integrations/chat/storage";
+import { chatStorage, type IChatStorage } from "./ai/chat/storage";
 
 export interface IStorage extends IChatStorage {
   // User

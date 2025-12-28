@@ -1,177 +1,180 @@
-import { useEffect, useState, useRef } from "react";
-import { Sidebar } from "@/components/Sidebar";
-import { PosterPreview } from "@/components/PosterPreview";
-import { usePoster, useUpdatePoster, useGenerateBackground, useCreatePoster } from "@/hooks/use-posters";
+import { useState, useRef } from "react";
+import { useCreatePoster } from "@/hooks/use-posters";
 import { useProducts, useImportProducts } from "@/hooks/use-products";
+import { useBackgrounds } from "@/hooks/use-backgrounds";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Wand2, Download, Save, Loader2, Check, Upload } from "lucide-react";
+import { Wand2, Download, Loader2, Check, Upload } from "lucide-react";
 import { motion } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
-import { InsertPoster } from "@shared/routes";
-
-// Initial empty state
-const emptyPoster: InsertPoster = {
-  userId: 1, // Mocked for now
-  templateKey: "2_products",
-  saleTitle: "Summer Sale",
-  themeText: "Summer beach vibes with palm trees and sun",
-  status: "draft",
-  productIds: [],
-  disclaimer: "Valid until 31st August 2024.",
-  dates: "Aug 1 - Aug 31",
-  storeLogoUrl: "",
-  backgroundImageUrl: "",
-};
 
 export default function PosterGenerator() {
-  // In a real app, we might get ID from URL, but here we'll create a session poster or load one
-  const [posterId, setPosterId] = useState<number | null>(null);
-  const { data: posterData, isLoading: isPosterLoading } = usePoster(posterId || 0);
+  const { backgrounds, generateBackground, uploadBackground, isGenerating, isUploading } = useBackgrounds();
   const { data: products = [] } = useProducts();
-  const { mutate: createPoster } = useCreatePoster();
-  const { mutate: updatePoster } = useUpdatePoster();
-  const { mutate: generateBackground, isPending: isGenerating } = useGenerateBackground();
+  const { mutate: createPoster, isPending: isCreating } = useCreatePoster();
   const { mutate: importProducts, isPending: isImporting } = useImportProducts();
   const { toast } = useToast();
 
   const bgFileInputRef = useRef<HTMLInputElement>(null);
   const csvFileInputRef = useRef<HTMLInputElement>(null);
+  const productImageRefs = useRef<HTMLInputElement[]>([null, null, null]);
 
-  const [localState, setLocalState] = useState<InsertPoster>(emptyPoster);
-  const [customFields, setCustomFields] = useState({
-    label1: "",
-    label2: "",
-    label3: "",
-    label4: ""
-  });
+  const [templateKey, setTemplateKey] = useState<"two_product" | "three_product">("two_product");
+  const [selectedBackgroundId, setSelectedBackgroundId] = useState<string | null>(null);
+  const [saleTitle, setSaleTitle] = useState("Summer Sale");
+  const [themeText, setThemeText] = useState("Summer beach vibes");
+  const [produktImages, setProduktImages] = useState<(File | null)[]>([null, null, null]);
+  const [prices, setPrices] = useState<(number | "")[]>([0, 0, 0]);
+  const [artikelNrs, setArtikelNrs] = useState<string[]>(["", "", ""]);
 
-  // Initialize poster if none exists
-  useEffect(() => {
-    if (!posterId) {
-      createPoster(emptyPoster, {
-        onSuccess: (data) => {
-          setPosterId(data.id);
-          setLocalState(data);
-        }
-      });
+  const handleGenerateBackground = () => {
+    if (themeText.length < 5) {
+      toast({ title: "Theme too short", description: "Please enter at least 5 characters.", variant: "destructive" });
+      return;
     }
-  }, []);
-
-  // Sync server state to local state when polling updates it
-  useEffect(() => {
-    if (posterData) {
-      setLocalState(posterData);
-    }
-  }, [posterData]);
-
-  const handleUpdate = (field: keyof InsertPoster, value: any) => {
-    setLocalState(prev => ({ ...prev, [field]: value }));
-  };
-
-  const saveChanges = () => {
-    if (!posterId) return;
-    updatePoster({ id: posterId, ...localState });
-    toast({ title: "Saved", description: "Your changes have been saved." });
-  };
-
-  const handleGenerate = () => {
-    if (!posterId) return;
-    saveChanges(); // Save current text first
-    generateBackground({ id: posterId, themeText: localState.themeText });
-  };
-
-  const toggleProduct = (productId: number) => {
-    const maxProducts = localState.templateKey === "4_products" ? 4 : localState.templateKey === "3_products" ? 3 : 2;
-    const currentIds = localState.productIds || [];
-    const newIds = currentIds.includes(productId)
-      ? currentIds.filter(id => id !== productId)
-      : [...currentIds, productId].slice(0, maxProducts);
-    handleUpdate("productIds", newIds);
+    generateBackground(themeText);
   };
 
   const handleBackgroundUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    uploadBackground(file);
+  };
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const dataUrl = event.target?.result as string;
-      if (posterId) {
-        updatePoster({ id: posterId, backgroundImageUrl: dataUrl });
-        toast({ title: "Background Uploaded", description: "Your custom background has been applied." });
-      }
+  const handleProductImageUpload = (index: number) => {
+    return (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      setProduktImages(prev => {
+        const newImages = [...prev];
+        newImages[index] = file;
+        return newImages;
+      });
     };
-    reader.readAsDataURL(file);
   };
 
   const handleCSVUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
     const formData = new FormData();
     formData.append("file", file);
     importProducts(formData, {
       onSuccess: () => {
-        toast({ title: "Products Imported", description: "CSV products have been imported successfully." });
+        toast({ title: "Products Imported", description: "CSV products imported successfully." });
       },
-      onError: (error) => {
+      onError: () => {
         toast({ title: "Import Error", description: "Failed to import CSV file.", variant: "destructive" });
       }
     });
   };
 
-  if (!posterId || isPosterLoading) {
-    return (
-      <div className="h-screen w-full flex items-center justify-center bg-slate-50">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
-      </div>
-    );
-  }
+  const handleCreatePoster = () => {
+    if (!selectedBackgroundId) {
+      toast({ title: "Select Background", description: "Please select or generate a background.", variant: "destructive" });
+      return;
+    }
+    if (!saleTitle.trim()) {
+      toast({ title: "Missing Title", description: "Please enter a sale title.", variant: "destructive" });
+      return;
+    }
+
+    const productCount = templateKey === "two_product" ? 2 : 3;
+    const images: File[] = [];
+    const validPrices: number[] = [];
+    const validNrs: string[] = [];
+
+    for (let i = 0; i < productCount; i++) {
+      if (!produktImages[i]) {
+        toast({ title: "Missing Product Image", description: `Product ${i + 1} needs an image.`, variant: "destructive" });
+        return;
+      }
+      images.push(produktImages[i]!);
+      validPrices.push(Number(prices[i]) || 0);
+      validNrs.push(artikelNrs[i] || "");
+    }
+
+    createPoster({
+      backgroundId: selectedBackgroundId,
+      templateKey,
+      saleTitle,
+      images,
+      prices: validPrices,
+      artikelNrs: validNrs,
+    });
+  };
+
+  const selectedBackground = backgrounds.find(b => b.id === selectedBackgroundId);
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-background">
-      <Sidebar />
-      
+      {/* Left Sidebar */}
+      <div className="w-[280px] bg-white border-r border-border shrink-0">
+        <div className="p-4 border-b border-border">
+          <h1 className="font-display text-xl font-bold">Poster Generator</h1>
+          <p className="text-sm text-muted-foreground">Create AI-powered marketing posters</p>
+        </div>
+      </div>
+
       {/* Main Content Area */}
       <main className="flex-1 flex min-w-0">
         {/* Center: Preview */}
-        <div className="flex-1 relative border-r border-border">
-          <PosterPreview poster={localState as any} products={products} />
+        <div className="flex-1 relative border-r border-border bg-slate-50 flex items-center justify-center">
+          {selectedBackground?.url ? (
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="relative bg-white aspect-[9/16] h-[90%] rounded-sm shadow-2xl overflow-hidden"
+            >
+              <img 
+                src={selectedBackground.url} 
+                alt="Poster Background" 
+                className="absolute inset-0 w-full h-full object-cover"
+              />
+              <div className="relative z-10 w-full h-full p-8 flex flex-col justify-center">
+                <h2 className="text-4xl font-display font-bold text-white text-center drop-shadow-lg">
+                  {saleTitle || "SALE TITLE"}
+                </h2>
+              </div>
+            </motion.div>
+          ) : (
+            <div className="text-center">
+              <p className="text-slate-400 font-medium">Generate or select a background to preview</p>
+            </div>
+          )}
         </div>
 
         {/* Right: Controls */}
         <div className="w-[350px] bg-white overflow-y-auto shrink-0 flex flex-col">
           <div className="p-6 border-b border-border">
             <h2 className="font-display text-lg font-bold mb-1">Design Controls</h2>
-            <p className="text-sm text-muted-foreground">Customize your poster appearance</p>
+            <p className="text-sm text-muted-foreground">Create your poster</p>
           </div>
 
-          <div className="flex-1 p-6 space-y-8">
-            {/* Theme Section */}
+          <div className="flex-1 p-6 space-y-8 overflow-y-auto">
+            {/* Background Section */}
             <section className="space-y-4">
               <div className="flex items-center justify-between">
-                <Label className="text-base font-semibold">AI Theme Generation</Label>
+                <Label className="text-base font-semibold">Background</Label>
                 <Wand2 className="w-4 h-4 text-primary" />
               </div>
               <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 space-y-3">
-                <Label htmlFor="theme" className="text-xs uppercase text-muted-foreground font-bold tracking-wider">Prompt</Label>
+                <Label htmlFor="theme" className="text-xs uppercase text-muted-foreground font-bold tracking-wider">Theme</Label>
                 <textarea
                   id="theme"
-                  className="w-full min-h-[80px] p-3 rounded-lg border border-input text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-                  placeholder="Describe the background style..."
-                  value={localState.themeText}
-                  onChange={(e) => handleUpdate("themeText", e.target.value)}
+                  className="w-full min-h-[60px] p-3 rounded-lg border border-input text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                  placeholder="Describe background style (min 5 chars)..."
+                  value={themeText}
+                  onChange={(e) => setThemeText(e.target.value)}
                 />
                 <div className="flex gap-2">
                   <Button 
-                    className="flex-1 bg-gradient-to-r from-teal-400 to-blue-500 hover:from-teal-500 hover:to-blue-600 text-white border-0 shadow-lg shadow-blue-500/20 text-sm"
-                    onClick={handleGenerate}
-                    disabled={isGenerating || localState.status === 'generating'}
+                    className="flex-1 bg-gradient-to-r from-teal-400 to-blue-500 text-white border-0 text-sm"
+                    onClick={handleGenerateBackground}
+                    disabled={isGenerating || themeText.length < 5}
                   >
-                    {isGenerating || localState.status === 'generating' ? (
+                    {isGenerating ? (
                       <>
                         <Loader2 className="w-3 h-3 mr-2 animate-spin" />
                         Generating...
@@ -187,6 +190,7 @@ export default function PosterGenerator() {
                     className="px-3 text-sm"
                     variant="outline"
                     onClick={() => bgFileInputRef.current?.click()}
+                    disabled={isUploading}
                   >
                     <Upload className="w-3 h-3 mr-1" />
                     Upload
@@ -200,160 +204,150 @@ export default function PosterGenerator() {
                   />
                 </div>
               </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="bg-select" className="text-xs text-muted-foreground">Select Background</Label>
+                <Select value={selectedBackgroundId || ""} onValueChange={setSelectedBackgroundId}>
+                  <SelectTrigger id="bg-select">
+                    <SelectValue placeholder="Choose a background..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {backgrounds.map((bg) => (
+                      <SelectItem key={bg.id} value={bg.id}>
+                        {bg.status === 'completed' ? '✓ Ready' : '⟳ Generating'} - {bg.id.substring(0, 8)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </section>
 
-            {/* Text Details */}
+            {/* Poster Details */}
             <section className="space-y-4">
-              <Label className="text-base font-semibold">Text Content</Label>
+              <Label className="text-base font-semibold">Poster Details</Label>
               <div className="space-y-3">
                 <div className="space-y-1.5">
                   <Label htmlFor="title" className="text-xs text-muted-foreground">Sale Title</Label>
                   <Input 
                     id="title" 
-                    value={localState.saleTitle}
-                    onChange={(e) => handleUpdate("saleTitle", e.target.value)}
+                    value={saleTitle}
+                    onChange={(e) => setSaleTitle(e.target.value)}
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="dates" className="text-xs text-muted-foreground">Dates</Label>
-                  <Input 
-                    id="dates" 
-                    value={localState.dates || ""}
-                    onChange={(e) => handleUpdate("dates", e.target.value)}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="disclaimer" className="text-xs text-muted-foreground">Disclaimer</Label>
-                  <Input 
-                    id="disclaimer" 
-                    value={localState.disclaimer || ""}
-                    onChange={(e) => handleUpdate("disclaimer", e.target.value)}
-                  />
+                  <Label htmlFor="template" className="text-xs text-muted-foreground">Template</Label>
+                  <Select value={templateKey} onValueChange={(v: any) => setTemplateKey(v)}>
+                    <SelectTrigger id="template">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="two_product">2 Products</SelectItem>
+                      <SelectItem value="three_product">3 Products</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
             </section>
 
-            {/* Products Selection */}
+            {/* Products */}
             <section className="space-y-4">
-              <div>
-                <Label className="text-base font-semibold block mb-3">Select Products</Label>
-                <div className="space-y-3">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="template" className="text-xs text-muted-foreground">Template</Label>
-                    <Select value={localState.templateKey} onValueChange={(value) => handleUpdate("templateKey", value)}>
-                      <SelectTrigger id="template">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="2_products">2 Products</SelectItem>
-                        <SelectItem value="3_products">3 Products</SelectItem>
-                        <SelectItem value="4_products">4 Products</SelectItem>
-                      </SelectContent>
-                    </Select>
+              <Label className="text-base font-semibold">Products</Label>
+              {[0, 1, ...(templateKey === "three_product" ? [2] : [])].map((idx) => (
+                <div key={idx} className="space-y-3 p-3 bg-slate-50 rounded-lg">
+                  <div className="flex gap-2">
+                    <div className="flex-1 space-y-1.5">
+                      <Label className="text-xs text-muted-foreground">Article #{idx + 1}</Label>
+                      <Input 
+                        value={artikelNrs[idx] || ""}
+                        onChange={(e) => {
+                          const newNrs = [...artikelNrs];
+                          newNrs[idx] = e.target.value;
+                          setArtikelNrs(newNrs);
+                        }}
+                        placeholder="Article number"
+                        className="text-xs"
+                      />
+                    </div>
+                    <div className="flex-1 space-y-1.5">
+                      <Label className="text-xs text-muted-foreground">Price</Label>
+                      <Input 
+                        type="number"
+                        value={prices[idx]}
+                        onChange={(e) => {
+                          const newPrices = [...prices];
+                          newPrices[idx] = e.target.value ? Number(e.target.value) : "";
+                          setPrices(newPrices);
+                        }}
+                        placeholder="0.00"
+                        className="text-xs"
+                      />
+                    </div>
                   </div>
                   <Button 
-                    className="w-full text-sm"
                     variant="outline"
-                    onClick={() => csvFileInputRef.current?.click()}
-                    disabled={isImporting}
+                    size="sm"
+                    className="w-full text-xs"
+                    onClick={() => productImageRefs.current[idx]?.click()}
                   >
-                    {isImporting ? (
-                      <>
-                        <Loader2 className="w-3 h-3 mr-2 animate-spin" />
-                        Importing...
-                      </>
-                    ) : (
-                      <>
-                        <Upload className="w-3 h-3 mr-2" />
-                        Import CSV
-                      </>
-                    )}
+                    {produktImages[idx] ? "✓ Image" : "Upload Image"}
                   </Button>
                   <input
-                    ref={csvFileInputRef}
+                    ref={(el) => { productImageRefs.current[idx] = el }}
                     type="file"
-                    accept=".csv"
+                    accept="image/*"
                     className="hidden"
-                    onChange={handleCSVUpload}
+                    onChange={handleProductImageUpload(idx)}
                   />
                 </div>
-              </div>
-
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground">Selected</span>
-                <span className="text-xs bg-slate-100 px-2 py-1 rounded-full text-slate-600 font-medium">
-                  {localState.productIds.length}/{localState.templateKey === "4_products" ? 4 : localState.templateKey === "3_products" ? 3 : 2}
-                </span>
-              </div>
-              
-              <div className="grid grid-cols-1 gap-2 max-h-[250px] overflow-y-auto pr-1">
-                {products.map((product: any) => {
-                  const isSelected = localState.productIds.includes(product.id);
-                  return (
-                    <div 
-                      key={product.id}
-                      onClick={() => toggleProduct(product.id)}
-                      className={`
-                        flex items-center gap-3 p-2 rounded-lg cursor-pointer border transition-all duration-200
-                        ${isSelected 
-                          ? "bg-primary/5 border-primary shadow-sm" 
-                          : "bg-white border-transparent hover:bg-slate-50 border-slate-100"}
-                      `}
-                      data-testid={`product-item-${product.id}`}
-                    >
-                      <div className="w-10 h-10 bg-slate-200 rounded-md overflow-hidden shrink-0">
-                        <img 
-                          src={product.imagePath || `https://placehold.co/100x100?text=${product.name.charAt(0)}`}
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{product.name}</p>
-                        <p className="text-xs text-muted-foreground">${product.price}</p>
-                      </div>
-                      {isSelected && <Check className="w-4 h-4 text-primary" />}
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Custom Fields 2x2 Grid */}
-              <div className="grid grid-cols-2 gap-3 mt-4">
-                {(['label1', 'label2', 'label3', 'label4'] as const).map((field) => (
-                  <div key={field} className="space-y-1.5">
-                    <Label htmlFor={field} className="text-xs text-muted-foreground capitalize">{field}</Label>
-                    <Input 
-                      id={field}
-                      placeholder={`Enter ${field}`}
-                      value={customFields[field]}
-                      onChange={(e) => setCustomFields(prev => ({ ...prev, [field]: e.target.value }))}
-                      className="text-sm"
-                      data-testid={`input-${field}`}
-                    />
-                  </div>
-                ))}
-              </div>
+              ))}
             </section>
           </div>
 
-          {/* Footer Actions */}
-          <div className="p-6 border-t border-border bg-slate-50 space-y-3">
+          {/* Bottom Actions */}
+          <div className="p-6 border-t border-border space-y-3">
             <Button 
               className="w-full" 
               variant="default"
-              onClick={saveChanges}
+              onClick={handleCreatePoster}
+              disabled={isCreating}
             >
-              <Save className="w-4 h-4 mr-2" />
-              Save Changes
+              {isCreating ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                <>
+                  <Check className="w-4 h-4 mr-2" />
+                  Create Poster
+                </>
+              )}
             </Button>
             <Button 
               className="w-full" 
               variant="outline"
-              onClick={() => toast({ title: "Export Started", description: "Your download will begin shortly." })}
+              onClick={() => csvFileInputRef.current?.click()}
+              disabled={isImporting}
             >
-              <Download className="w-4 h-4 mr-2" />
-              Export Poster
+              {isImporting ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Importing...
+                </>
+              ) : (
+                <>
+                  <Upload className="w-4 h-4 mr-2" />
+                  Import Products CSV
+                </>
+              )}
             </Button>
+            <input
+              ref={csvFileInputRef}
+              type="file"
+              accept=".csv"
+              className="hidden"
+              onChange={handleCSVUpload}
+            />
           </div>
         </div>
       </main>

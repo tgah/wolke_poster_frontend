@@ -8,9 +8,9 @@ import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
 import multer from "multer";
 import { parse } from "csv-parse/sync";
-import { openai } from "./replit_integrations/image/client";
-import { registerChatRoutes } from "./replit_integrations/chat";
-import { registerImageRoutes } from "./replit_integrations/image";
+import { openai } from "./ai/image/client";
+import { registerChatRoutes } from "./ai/chat";
+import { registerImageRoutes } from "./ai/image";
 
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -172,45 +172,6 @@ export async function registerRoutes(
       if (err instanceof z.ZodError) return res.status(400).json({ message: err.errors[0].message });
       throw err;
     }
-  });
-
-  app.post(api.posters.generateBackground.path, requireAuth, async (req, res) => {
-    const { themeText } = req.body;
-    const posterId = Number(req.params.id);
-    const poster = await storage.getPoster(posterId);
-    
-    if (!poster) return res.status(404).json({ message: "Poster not found" });
-
-    // Update status to generating
-    await storage.updatePoster(posterId, { status: "generating" });
-
-    // Async generation
-    (async () => {
-      try {
-        const response = await openai.images.generate({
-          model: "gpt-image-1",
-          prompt: `A professional marketing poster background for: ${themeText}. Minimalist, clean, suitable for overlaying text.`,
-          size: "1024x1024",
-          response_format: "b64_json"
-        });
-        
-        const imageData = response.data[0];
-        const imageUrl = imageData.url || `data:image/png;base64,${imageData.b64_json}`; // Fallback to data URI if URL not provided
-        
-        // In a real app, upload this to S3/Blob storage and get a public URL
-        // For now, we might save it as a data URI (large!) or just use the temporary URL from OpenAI
-        
-        await storage.updatePoster(posterId, { 
-          status: "completed",
-          backgroundImageUrl: imageUrl 
-        });
-      } catch (error) {
-        console.error("Background generation failed:", error);
-        await storage.updatePoster(posterId, { status: "draft" }); // Revert status
-      }
-    })();
-
-    res.json({ message: "Background generation started" });
   });
 
   app.post(api.posters.export.path, requireAuth, async (req, res) => {
