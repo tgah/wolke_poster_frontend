@@ -8,11 +8,11 @@ import { apiFetch } from "./api-client";
  */
 async function parseJsonSafely(res: Response) {
   const text = await res.text();
-  if (!text) return null;
+  if (!text) return { text: "", json: null };
   try {
-    return JSON.parse(text);
+    return { text, json: JSON.parse(text) };
   } catch {
-    return null;
+    return { text, json: null };
   }
 }
 
@@ -29,11 +29,11 @@ export async function apiRequest<T = unknown>(
   const res = await apiFetch(url, options);
 
   if (!res.ok) {
-    const payload = await parseJsonSafely(res);
+    const { text, json } = await parseJsonSafely(res);
     const msg =
-      payload?.message ||
-      payload?.error ||
-      (await res.text()) ||
+      json?.message ||
+      json?.error ||
+      text ||
       res.statusText;
 
     throw new Error(`${res.status}: ${msg}`);

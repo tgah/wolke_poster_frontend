@@ -7,11 +7,11 @@ import { setAccessToken, clearAccessToken, apiFetch } from "@/lib/api-client";
 
 async function parseJsonSafely(res: Response) {
   const text = await res.text();
-  if (!text) return null;
+  if (!text) return { text: "", json: null };
   try {
-    return JSON.parse(text);
+    return { text, json: JSON.parse(text) };
   } catch {
-    return null;
+    return { text, json: null };
   }
 }
 
@@ -28,11 +28,11 @@ export function useAuth() {
       // apiFetch handles 401 redirect + token clearing globally.
       if (!res.ok) {
         // For non-401 errors, surface something useful
-        const payload = await parseJsonSafely(res);
+        const { text, json } = await parseJsonSafely(res);
         const msg =
-          payload?.message ||
-          payload?.error ||
-          (await res.text()) ||
+          json?.message ||
+          json?.error ||
+          text ||
           res.statusText;
         throw new Error(`${res.status}: ${msg}`);
       }
@@ -53,11 +53,11 @@ export function useAuth() {
       });
 
       if (!res.ok) {
-        const payload = await parseJsonSafely(res);
+        const { text, json } = await parseJsonSafely(res);
         const msg =
-          payload?.message ||
-          payload?.error ||
-          (await res.text()) ||
+          json?.message ||
+          json?.error ||
+          text ||
           res.statusText;
         throw new Error(`${res.status}: ${msg}`);
       }
@@ -74,11 +74,11 @@ export function useAuth() {
       // Immediately fetch /auth/me to populate user state
       const meRes = await apiFetch(api.auth.me.path, { method: "GET" });
       if (!meRes.ok) {
-        const payload = await parseJsonSafely(meRes);
+        const { text, json } = await parseJsonSafely(meRes);
         const msg =
-          payload?.message ||
-          payload?.error ||
-          (await meRes.text()) ||
+          json?.message ||
+          json?.error ||
+          text ||
           meRes.statusText;
 
         // If we can't verify session, treat it as invalid

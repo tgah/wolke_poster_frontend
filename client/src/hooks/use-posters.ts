@@ -26,7 +26,20 @@ export function usePosters() {
       const res = await apiFetch(api.posters.create.path, { method: "GET" });
 
       if (!res.ok) {
-        const msg = await res.text();
+        let msg = res.statusText;
+        try {
+          const errorText = await res.text();
+          if (errorText) {
+            try {
+              const errorJson = JSON.parse(errorText);
+              msg = errorJson.message || errorJson.error || errorText;
+            } catch {
+              msg = errorText;
+            }
+          }
+        } catch {
+          // If we can't read the response, use statusText
+        }
         throw new Error(msg);
       }
 
@@ -59,7 +72,20 @@ export function usePosters() {
       });
 
       if (!res.ok) {
-        const msg = await res.text();
+        let msg = res.statusText;
+        try {
+          const errorText = await res.text();
+          if (errorText) {
+            try {
+              const errorJson = JSON.parse(errorText);
+              msg = errorJson.message || errorJson.error || errorText;
+            } catch {
+              msg = errorText;
+            }
+          }
+        } catch {
+          // If we can't read the response, use statusText
+        }
         throw new Error(`Poster creation failed: ${msg}`);
       }
 

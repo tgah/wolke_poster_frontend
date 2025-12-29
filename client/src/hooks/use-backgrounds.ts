@@ -58,7 +58,20 @@ export function useBackgrounds() {
       });
 
       if (!res.ok) {
-        const msg = await res.text();
+        let msg = res.statusText;
+        try {
+          const errorText = await res.text();
+          if (errorText) {
+            try {
+              const errorJson = JSON.parse(errorText);
+              msg = errorJson.message || errorJson.error || errorText;
+            } catch {
+              msg = errorText;
+            }
+          }
+        } catch {
+          // If we can't read the response, use statusText
+        }
         throw new Error(`Generate failed: ${msg}`);
       }
 
@@ -88,7 +101,20 @@ export function useBackgrounds() {
       });
 
       if (!res.ok) {
-        const msg = await res.text();
+        let msg = res.statusText;
+        try {
+          const errorText = await res.text();
+          if (errorText) {
+            try {
+              const errorJson = JSON.parse(errorText);
+              msg = errorJson.message || errorJson.error || errorText;
+            } catch {
+              msg = errorText;
+            }
+          }
+        } catch {
+          // If we can't read the response, use statusText
+        }
         throw new Error(`Upload failed: ${msg}`);
       }
 
