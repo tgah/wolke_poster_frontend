@@ -3,14 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api-client";
 import { apiRequest } from "@/lib/queryClient";
-import { api } from "@shared/routes";
-
-export type Background = {
-  id: string;
-  status: "pending" | "processing" | "completed" | "failed";
-  url?: string;
-  created_at?: string;
-};
+import { api, type Background } from "@/types/api";
 
 /**
  * Poll a background until it's completed and has a URL.

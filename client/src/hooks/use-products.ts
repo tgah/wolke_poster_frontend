@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { api } from "@shared/routes";
+import { api, type Product } from "@/types/api";
 import { apiFetch } from "@/lib/api-client";
 
 export function useProducts() {
@@ -10,7 +10,7 @@ export function useProducts() {
         method: api.products.list.method,
       });
       if (!res.ok) throw new Error("Failed to fetch products");
-      return api.products.list.responses[200].parse(await res.json());
+      return (await res.json()) as Product[];
     },
   });
 }
@@ -24,7 +24,7 @@ export function useImportProducts() {
         body: formData,
       });
       if (!res.ok) throw new Error("Import failed");
-      return api.products.import.responses[200].parse(await res.json());
+      return await res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [api.products.list.path] });

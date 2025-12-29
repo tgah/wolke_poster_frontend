@@ -2,14 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api-client";
-import { api } from "@shared/routes";
-
-export type Poster = {
-  id: string;
-  status?: string;
-  url?: string;
-  created_at?: string;
-};
+import { api, type Poster } from "@/types/api";
 
 export type CreatePosterInput = {
   backgroundId: string;

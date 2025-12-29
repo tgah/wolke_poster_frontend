@@ -1,12 +1,9 @@
 // client/src/hooks/use-auth.ts
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { api } from "@shared/routes";
+import { api, type LoginInput } from "@/types/api";
 import { useLocation } from "wouter";
-import { z } from "zod";
 import { setAccessToken, clearAccessToken, apiFetch } from "@/lib/api-client";
-
-type LoginInput = z.infer<typeof api.auth.login.input>;
 
 async function parseJsonSafely(res: Response) {
   const text = await res.text();
