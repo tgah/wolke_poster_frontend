@@ -180,7 +180,7 @@ export default function PosterGenerator() {
       return;
     }
     const background = backgrounds.find(b => b.id === selectedBackgroundId);
-    if (!background || background.status !== 'completed') {
+    if (!background || background.status !== 'ready') {
       toast({ title: "Background Not Ready", description: "Please wait for background to complete or select a ready one.", variant: "destructive" });
       return;
     }
@@ -247,7 +247,7 @@ export default function PosterGenerator() {
               className="relative bg-white aspect-[9/16] h-[90%] rounded-sm shadow-2xl overflow-hidden"
             >
               <img 
-                src={selectedBackground.url} 
+                src={`${import.meta.env.VITE_API_BASE_URL}${selectedBackground.url}`} 
                 alt="Poster Background" 
                 className="absolute inset-0 w-full h-full object-cover"
               />
@@ -331,7 +331,7 @@ export default function PosterGenerator() {
                   <SelectContent>
                     {backgrounds.map((bg) => (
                       <SelectItem key={bg.id} value={bg.id}>
-                        {bg.status === 'completed' ? '✓ Ready' : '⟳ Generating'} - {bg.id.substring(0, 8)}
+                        {bg.status === 'ready' ? '✓ Ready' : '⟳ Generating'} - {bg.id.substring(0, 8)}
                       </SelectItem>
                     ))}
                   </SelectContent>

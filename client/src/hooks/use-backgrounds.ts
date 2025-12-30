@@ -17,7 +17,7 @@ async function pollBackground(id: string): Promise<Background> {
       method: api.backgrounds.get.method,
     });
 
-    if (bg.status === "completed" && bg.url) {
+    if (bg.status === "ready" && bg.url) {
       return bg;
     }
 

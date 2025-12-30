@@ -3,55 +3,36 @@ export const api = {
   auth: {
     login: {
       method: 'POST' as const,
-      path: '/api/auth/login',
+      path: '/auth/login',
     },
     me: {
       method: 'GET' as const,
-      path: '/api/auth/me',
+      path: '/auth/me',
     },
-    logout: {
-      method: 'POST' as const,
-      path: '/api/auth/logout',
-    }
-  },
-  backgrounds: {
-    list: {
-      method: 'GET' as const,
-      path: '/api/backgrounds',
-    },
-    get: {
-      method: 'GET' as const,
-      path: '/api/backgrounds/:id',
-    },
-    generate: {
-      method: 'POST' as const,
-      path: '/api/backgrounds/generate',
-    },
-    upload: {
-      method: 'POST' as const,
-      path: '/api/backgrounds/upload',
-    },
+    // Note: backend has no logout endpoint - logout is client-side only
   },
   products: {
     list: {
       method: 'GET' as const,
-      path: '/api/products',
+      path: '/products',
     },
     import: {
       method: 'POST' as const,
-      path: '/api/products/import',
+      path: '/products/import',
     },
   },
   posters: {
     create: {
       method: 'POST' as const,
-      path: '/api/posters',
+      path: '/posters',
     },
     get: {
       method: 'GET' as const,
-      path: '/api/posters/:id',
+      path: '/posters/:id',
     },
   },
+  // Note: /backgrounds endpoints don't exist in backend
+  // Background generation is handled through poster endpoints
 };
 
 export type LoginInput = {
@@ -62,7 +43,7 @@ export type LoginInput = {
 
 export type Background = {
   id: string;
-  status: "pending" | "processing" | "completed" | "failed";
+  status: "pending" | "processing" | "ready" | "failed";
   url?: string;
   created_at?: string;
 };
