@@ -4,13 +4,18 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api-client";
 import { api, type Poster } from "@/types/api";
 
+export type ProductInput = {
+  artikelNr: string;
+  price: number | "";
+  image: File | null;
+};
+
 export type CreatePosterInput = {
-  backgroundId: string;
   templateKey: string;
+  maxProducts: number;
+  backgroundId: string;
   saleTitle: string;
-  images: File[];
-  prices: number[];
-  artikelNrs: string[];
+  products: ProductInput[];
 };
 
 /**
@@ -54,17 +59,18 @@ export function usePosters() {
     mutationFn: async (input: CreatePosterInput) => {
       const form = new FormData();
 
-      // Required base fields with exact snake_case keys
+      // Required base fields
       form.append("background_id", input.backgroundId);
       form.append("template_key", input.templateKey);
       form.append("sale_title", input.saleTitle);
 
-      // Product rows with exact snake_case keys
-      input.images.forEach((image, index) => {
-        form.append(`artikel_nr_${index}`, input.artikelNrs[index] || "");
-        form.append(`sale_price_${index}`, input.prices[index]?.toString() || "0");
-        form.append(`product_image_${index}`, image);
-      });
+      // Product fields by looping exactly i < maxProducts
+      for (let i = 0; i < input.maxProducts; i++) {
+        const product = input.products[i];
+        form.append(`artikel_nr_${i}`, product.artikelNr);
+        form.append(`sale_price_${i}`, product.price.toString());
+        form.append(`product_image_${i}`, product.image!);
+      }
 
       const res = await apiFetch(api.posters.create.path, {
         method: api.posters.create.method,

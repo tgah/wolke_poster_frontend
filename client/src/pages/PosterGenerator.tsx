@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { useCreatePoster } from "@/hooks/use-posters";
+import { useCreatePoster, type ProductInput } from "@/hooks/use-posters";
 import { useProducts, useImportProducts } from "@/hooks/use-products";
 import { useBackgrounds } from "@/hooks/use-backgrounds";
 import { Button } from "@/components/ui/button";
@@ -9,12 +9,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Wand2, Download, Loader2, Check, Upload } from "lucide-react";
 import { motion } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
-
-type ProductInput = {
-  artikelNr: string;
-  price: number | "";
-  image: File | null;
-};
 
 type Template = {
   key: "two_product" | "three_product";
@@ -175,37 +169,58 @@ export default function PosterGenerator() {
   };
 
   const handleCreatePoster = () => {
+    if (!selectedTemplate) {
+      toast({ title: "Template Error", description: "No template selected.", variant: "destructive" });
+      return;
+    }
+
+    // Validate background_id exists and background is ready
     if (!selectedBackgroundId) {
       toast({ title: "Select Background", description: "Please select or generate a background.", variant: "destructive" });
       return;
     }
+    const background = backgrounds.find(b => b.id === selectedBackgroundId);
+    if (!background || background.status !== 'completed') {
+      toast({ title: "Background Not Ready", description: "Please wait for background to complete or select a ready one.", variant: "destructive" });
+      return;
+    }
+
+    // Validate sale_title is non-empty
     if (!saleTitle.trim()) {
       toast({ title: "Missing Title", description: "Please enter a sale title.", variant: "destructive" });
       return;
     }
 
-    const images: File[] = [];
-    const validPrices: number[] = [];
-    const validNrs: string[] = [];
+    // Validate products array length equals max_products
+    if (products.length !== selectedTemplate.max_products) {
+      toast({ title: "Product Count Mismatch", description: `Template requires exactly ${selectedTemplate.max_products} products.`, variant: "destructive" });
+      return;
+    }
 
-    for (let i = 0; i < products.length; i++) {
+    // Validate every product entry has artikelNr, salePrice, and imageFile
+    for (let i = 0; i < selectedTemplate.max_products; i++) {
       const product = products[i];
+      if (!product.artikelNr.trim()) {
+        toast({ title: "Missing Article Number", description: `Product ${i + 1} needs an article number.`, variant: "destructive" });
+        return;
+      }
+      if (!product.price || Number(product.price) <= 0) {
+        toast({ title: "Missing Price", description: `Product ${i + 1} needs a valid price.`, variant: "destructive" });
+        return;
+      }
       if (!product.image) {
         toast({ title: "Missing Product Image", description: `Product ${i + 1} needs an image.`, variant: "destructive" });
         return;
       }
-      images.push(product.image);
-      validPrices.push(Number(product.price) || 0);
-      validNrs.push(product.artikelNr || "");
     }
 
+    // Call create-poster mutation with validated data
     createPoster({
+      templateKey: selectedTemplate.key,
+      maxProducts: selectedTemplate.max_products,
       backgroundId: selectedBackgroundId,
-      templateKey,
       saleTitle,
-      images,
-      prices: validPrices,
-      artikelNrs: validNrs,
+      products,
     });
   };
 
