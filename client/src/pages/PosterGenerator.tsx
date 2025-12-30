@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useCreatePoster } from "@/hooks/use-posters";
 import { useProducts, useImportProducts } from "@/hooks/use-products";
 import { useBackgrounds } from "@/hooks/use-backgrounds";
@@ -10,24 +10,132 @@ import { Wand2, Download, Loader2, Check, Upload } from "lucide-react";
 import { motion } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
 
+type ProductInput = {
+  artikelNr: string;
+  price: number | "";
+  image: File | null;
+};
+
+type Template = {
+  key: "two_product" | "three_product";
+  label: string;
+  max_products: number;
+};
+
+const templates: Template[] = [
+  { key: "two_product", label: "2 Products", max_products: 2 },
+  { key: "three_product", label: "3 Products", max_products: 3 },
+];
+
+function createEmptyProduct(): ProductInput {
+  return {
+    artikelNr: "",
+    price: "",
+    image: null,
+  };
+}
+
+// Step 3: ProductInput component for dynamic rendering
+function ProductInput({ 
+  index, 
+  value, 
+  onChange 
+}: { 
+  index: number; 
+  value: ProductInput; 
+  onChange: (updated: ProductInput) => void;
+}) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  return (
+    <div className="space-y-3 p-3 bg-slate-50 rounded-lg">
+      <div className="flex gap-2">
+        <div className="flex-1 space-y-1.5">
+          <Label className="text-xs text-muted-foreground">Article #{index + 1}</Label>
+          <Input 
+            value={value.artikelNr}
+            onChange={(e) => onChange({ ...value, artikelNr: e.target.value })}
+            placeholder="Article number"
+            className="text-xs"
+          />
+        </div>
+        <div className="flex-1 space-y-1.5">
+          <Label className="text-xs text-muted-foreground">Price</Label>
+          <Input 
+            type="number"
+            value={value.price}
+            onChange={(e) => onChange({ 
+              ...value, 
+              price: e.target.value ? Number(e.target.value) : "" 
+            })}
+            placeholder="0.00"
+            className="text-xs"
+          />
+        </div>
+      </div>
+      <Button 
+        variant="outline"
+        size="sm"
+        className="w-full text-xs"
+        onClick={() => fileInputRef.current?.click()}
+      >
+        {value.image ? "✓ Image" : "Upload Image"}
+      </Button>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) {
+            onChange({ ...value, image: file });
+          }
+        }}
+      />
+    </div>
+  );
+}
+
 export default function PosterGenerator() {
   const { backgrounds, generateBackground, uploadBackground, isGenerating, isUploading } = useBackgrounds();
-  const { data: products = [] } = useProducts();
+  const { data: availableProducts = [] } = useProducts();
   const { mutate: createPoster, isPending: isCreating } = useCreatePoster();
   const { mutate: importProducts, isPending: isImporting } = useImportProducts();
   const { toast } = useToast();
 
   const bgFileInputRef = useRef<HTMLInputElement>(null);
   const csvFileInputRef = useRef<HTMLInputElement>(null);
-  const productImageRefs = useRef<HTMLInputElement[]>([null, null, null]);
 
   const [templateKey, setTemplateKey] = useState<"two_product" | "three_product">("two_product");
   const [selectedBackgroundId, setSelectedBackgroundId] = useState<string | null>(null);
   const [saleTitle, setSaleTitle] = useState("Summer Sale");
   const [themeText, setThemeText] = useState("Summer beach vibes");
-  const [produktImages, setProduktImages] = useState<(File | null)[]>([null, null, null]);
-  const [prices, setPrices] = useState<(number | "")[]>([0, 0, 0]);
-  const [artikelNrs, setArtikelNrs] = useState<string[]>(["", "", ""]);
+  
+  // Step 2: Normalize product state to an array
+  const [products, setProducts] = useState<ProductInput[]>([]);
+
+  // Step 1: Ensure selected template exposes max_products
+  const selectedTemplate = templates.find(t => t.key === templateKey);
+
+  // Step 2: On template change, normalize product array
+  useEffect(() => {
+    if (!selectedTemplate) return;
+    
+    setProducts(prev =>
+      Array.from({ length: selectedTemplate.max_products }, (_, i) =>
+        prev[i] ?? createEmptyProduct()
+      )
+    );
+  }, [selectedTemplate]);
+
+  const updateProduct = (index: number, updated: Partial<ProductInput>) => {
+    setProducts(prev => 
+      prev.map((product, i) => 
+        i === index ? { ...product, ...updated } : product
+      )
+    );
+  };
 
   const handleGenerateBackground = () => {
     if (themeText.length < 5) {
@@ -47,11 +155,7 @@ export default function PosterGenerator() {
     return (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
       if (!file) return;
-      setProduktImages(prev => {
-        const newImages = [...prev];
-        newImages[index] = file;
-        return newImages;
-      });
+      updateProduct(index, { image: file });
     };
   };
 
@@ -80,19 +184,19 @@ export default function PosterGenerator() {
       return;
     }
 
-    const productCount = templateKey === "two_product" ? 2 : 3;
     const images: File[] = [];
     const validPrices: number[] = [];
     const validNrs: string[] = [];
 
-    for (let i = 0; i < productCount; i++) {
-      if (!produktImages[i]) {
+    for (let i = 0; i < products.length; i++) {
+      const product = products[i];
+      if (!product.image) {
         toast({ title: "Missing Product Image", description: `Product ${i + 1} needs an image.`, variant: "destructive" });
         return;
       }
-      images.push(produktImages[i]!);
-      validPrices.push(Number(prices[i]) || 0);
-      validNrs.push(artikelNrs[i] || "");
+      images.push(product.image);
+      validPrices.push(Number(product.price) || 0);
+      validNrs.push(product.artikelNr || "");
     }
 
     createPoster({
@@ -147,11 +251,9 @@ export default function PosterGenerator() {
 
         {/* Right: Controls */}
         <div className="w-[350px] bg-white overflow-y-auto shrink-0 flex flex-col">
-          <div className="p-6 border-b border-border">
-            <h2 className="font-display text-lg font-bold mb-1">Design Controls</h2>
-            <p className="text-sm text-muted-foreground">Create your poster</p>
+          <div className="p-3 border-b border-border">
+            <h2 className="font-display text-lg font-bold">Design Controls</h2>
           </div>
-
           <div className="flex-1 p-6 space-y-8 overflow-y-auto">
             {/* Background Section */}
             <section className="space-y-4">
@@ -241,8 +343,11 @@ export default function PosterGenerator() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="two_product">2 Products</SelectItem>
-                      <SelectItem value="three_product">3 Products</SelectItem>
+                      {templates.map((template) => (
+                        <SelectItem key={template.key} value={template.key}>
+                          {template.label}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -252,53 +357,14 @@ export default function PosterGenerator() {
             {/* Products */}
             <section className="space-y-4">
               <Label className="text-base font-semibold">Products</Label>
-              {[0, 1, ...(templateKey === "three_product" ? [2] : [])].map((idx) => (
-                <div key={idx} className="space-y-3 p-3 bg-slate-50 rounded-lg">
-                  <div className="flex gap-2">
-                    <div className="flex-1 space-y-1.5">
-                      <Label className="text-xs text-muted-foreground">Article #{idx + 1}</Label>
-                      <Input 
-                        value={artikelNrs[idx] || ""}
-                        onChange={(e) => {
-                          const newNrs = [...artikelNrs];
-                          newNrs[idx] = e.target.value;
-                          setArtikelNrs(newNrs);
-                        }}
-                        placeholder="Article number"
-                        className="text-xs"
-                      />
-                    </div>
-                    <div className="flex-1 space-y-1.5">
-                      <Label className="text-xs text-muted-foreground">Price</Label>
-                      <Input 
-                        type="number"
-                        value={prices[idx]}
-                        onChange={(e) => {
-                          const newPrices = [...prices];
-                          newPrices[idx] = e.target.value ? Number(e.target.value) : "";
-                          setPrices(newPrices);
-                        }}
-                        placeholder="0.00"
-                        className="text-xs"
-                      />
-                    </div>
-                  </div>
-                  <Button 
-                    variant="outline"
-                    size="sm"
-                    className="w-full text-xs"
-                    onClick={() => productImageRefs.current[idx]?.click()}
-                  >
-                    {produktImages[idx] ? "✓ Image" : "Upload Image"}
-                  </Button>
-                  <input
-                    ref={(el) => { productImageRefs.current[idx] = el }}
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={handleProductImageUpload(idx)}
-                  />
-                </div>
+              {/* Step 3: Render inputs dynamically */}
+              {products.map((product, index) => (
+                <ProductInput
+                  key={index}
+                  index={index}
+                  value={product}
+                  onChange={(updated) => updateProduct(index, updated)}
+                />
               ))}
             </section>
           </div>
