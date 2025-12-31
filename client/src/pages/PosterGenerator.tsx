@@ -123,6 +123,27 @@ export default function PosterGenerator() {
     );
   }, [selectedTemplate]);
 
+  // Auto-select newly generated backgrounds for better UX
+  useEffect(() => {
+    if (!backgrounds.length) return;
+
+    // Find the most recent ready background
+    const latestReady = [...backgrounds]
+      .reverse()
+      .find(bg => bg.status === "ready");
+
+    if (!latestReady) return;
+
+    // Auto-select if nothing is selected yet
+    // OR if the currently selected background is not ready
+    if (
+      !selectedBackgroundId ||
+      backgrounds.find(b => b.id === selectedBackgroundId)?.status !== "ready"
+    ) {
+      setSelectedBackgroundId(latestReady.id);
+    }
+  }, [backgrounds, selectedBackgroundId]);
+
   const updateProduct = (index: number, updated: Partial<ProductInput>) => {
     setProducts(prev => 
       prev.map((product, i) => 
@@ -244,14 +265,13 @@ export default function PosterGenerator() {
             <motion.div 
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
-              className="relative bg-white aspect-[9/16] h-[90%] rounded-sm shadow-2xl overflow-hidden"
+              className="relative bg-white aspect-[297/420] h-[90%] max-h-full rounded-sm shadow-2xl overflow-hidden"
             >
               <img 
                 src={selectedBackground.url}
                 alt="Poster Background" 
                 className="absolute inset-0 w-full h-full object-cover"
-                onLoad={() => console.log('[poster] Preview image loaded:', selectedBackground.url)}
-                onError={() => console.log('[poster] Preview image error:', selectedBackground.url)}
+                onError={(e) => console.error('[preview] Image failed to load:', selectedBackground.url, e)}
               />
               <div className="relative z-10 w-full h-full p-8 flex flex-col justify-center">
                 <h2 className="text-4xl font-display font-bold text-white text-center drop-shadow-lg">
@@ -328,14 +348,7 @@ export default function PosterGenerator() {
                 <Label htmlFor="bg-select" className="text-xs text-muted-foreground">Select Background</Label>
                 <Select 
                   value={selectedBackgroundId || ""} 
-                  onValueChange={(value) => {
-                    console.log('[poster] Selected background ID:', value);
-                    const background = backgrounds.find(b => b.id === value);
-                    console.log('[poster] Selected background object:', background);
-                    console.log('[poster] Background URL:', background?.url);
-                    console.log('[poster] Final img src:', background?.url);
-                    setSelectedBackgroundId(value);
-                  }}
+                  onValueChange={setSelectedBackgroundId}
                 >
                   <SelectTrigger id="bg-select">
                     <SelectValue placeholder="Choose a background..." />
