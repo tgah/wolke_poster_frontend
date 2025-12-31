@@ -247,9 +247,11 @@ export default function PosterGenerator() {
               className="relative bg-white aspect-[9/16] h-[90%] rounded-sm shadow-2xl overflow-hidden"
             >
               <img 
-                src={`${import.meta.env.VITE_API_BASE_URL}${selectedBackground.url}`} 
+                src={selectedBackground.url}
                 alt="Poster Background" 
                 className="absolute inset-0 w-full h-full object-cover"
+                onLoad={() => console.log('[poster] Preview image loaded:', selectedBackground.url)}
+                onError={() => console.log('[poster] Preview image error:', selectedBackground.url)}
               />
               <div className="relative z-10 w-full h-full p-8 flex flex-col justify-center">
                 <h2 className="text-4xl font-display font-bold text-white text-center drop-shadow-lg">
@@ -324,7 +326,17 @@ export default function PosterGenerator() {
 
               <div className="space-y-1.5">
                 <Label htmlFor="bg-select" className="text-xs text-muted-foreground">Select Background</Label>
-                <Select value={selectedBackgroundId || ""} onValueChange={setSelectedBackgroundId}>
+                <Select 
+                  value={selectedBackgroundId || ""} 
+                  onValueChange={(value) => {
+                    console.log('[poster] Selected background ID:', value);
+                    const background = backgrounds.find(b => b.id === value);
+                    console.log('[poster] Selected background object:', background);
+                    console.log('[poster] Background URL:', background?.url);
+                    console.log('[poster] Final img src:', background?.url);
+                    setSelectedBackgroundId(value);
+                  }}
+                >
                   <SelectTrigger id="bg-select">
                     <SelectValue placeholder="Choose a background..." />
                   </SelectTrigger>
