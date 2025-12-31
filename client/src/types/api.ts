@@ -36,6 +36,10 @@ export const api = {
       method: 'GET' as const,
       path: '/api/posters/:id',
     },
+    export: {
+      method: 'POST' as const,
+      path: '/api/posters/:id/export',
+    },
   },
 };
 
@@ -53,10 +57,12 @@ export type Background = {
 };
 
 export type Product = {
-  id: number;
-  name: string;
-  price: string;
-  imagePath?: string;
+  artikelNr: string;
+  chineseName?: string;
+  germanName?: string;
+  weight?: string;
+  oldPrice?: number;
+  newPrice: number;
 };
 
 export type Poster = {

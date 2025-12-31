@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { useCreatePoster, type ProductInput } from "@/hooks/use-posters";
+import { useCreatePoster, exportPoster, type ProductInput } from "@/hooks/use-posters";
 import { useProducts, useImportProducts } from "@/hooks/use-products";
 import { useBackgrounds } from "@/hooks/use-backgrounds";
 import { Button } from "@/components/ui/button";
@@ -105,6 +105,8 @@ export default function PosterGenerator() {
   const [selectedBackgroundId, setSelectedBackgroundId] = useState<string | null>(null);
   const [saleTitle, setSaleTitle] = useState("Summer Sale");
   const [themeText, setThemeText] = useState("Summer beach vibes");
+  const [exportUrl, setExportUrl] = useState<string | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
   
   // Step 2: Normalize product state to an array
   const [products, setProducts] = useState<ProductInput[]>([]);
@@ -242,6 +244,35 @@ export default function PosterGenerator() {
       backgroundId: selectedBackgroundId,
       saleTitle,
       products,
+    }, {
+      onSuccess: async (poster) => {
+        try {
+          setIsExporting(true);
+          
+          const exportResult = await exportPoster(poster.id);
+          
+          setExportUrl(exportResult.url);
+          toast({ 
+            title: "Poster Ready", 
+            description: "Your poster has been generated successfully." 
+          });
+        } catch (err: any) {
+          toast({ 
+            title: "Export Failed", 
+            description: "Poster was created but export failed.", 
+            variant: "destructive" 
+          });
+        } finally {
+          setIsExporting(false);
+        }
+      },
+      onError: (error: any) => {
+        toast({ 
+          title: "Creation Failed", 
+          description: error.message || "Failed to create poster.", 
+          variant: "destructive" 
+        });
+      }
     });
   };
 
@@ -261,7 +292,22 @@ export default function PosterGenerator() {
       <main className="flex-1 flex min-w-0">
         {/* Center: Preview */}
         <div className="flex-1 relative border-r border-border bg-slate-50 flex items-center justify-center">
-          {selectedBackground?.url ? (
+          {exportUrl ? (
+            // Show final exported poster
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="relative bg-white aspect-[297/420] h-[90%] max-h-full rounded-sm shadow-2xl overflow-hidden"
+            >
+              <img 
+                src={exportUrl}
+                alt="Final Poster" 
+                className="absolute inset-0 w-full h-full object-cover"
+                onError={(e) => console.error('[preview] Final poster failed to load:', exportUrl, e)}
+              />
+            </motion.div>
+          ) : selectedBackground?.url ? (
+            // Show background preview if no poster exported yet
             <motion.div 
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -415,12 +461,17 @@ export default function PosterGenerator() {
               className="w-full" 
               variant="default"
               onClick={handleCreatePoster}
-              disabled={isCreating}
+              disabled={isCreating || isExporting}
             >
               {isCreating ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                   Creating...
+                </>
+              ) : isExporting ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Exporting...
                 </>
               ) : (
                 <>
@@ -428,6 +479,29 @@ export default function PosterGenerator() {
                   Create Poster
                 </>
               )}
+            </Button>
+            <Button 
+              className="w-full" 
+              variant="outline"
+              onClick={() => {
+                if (!exportUrl) {
+                  toast({ 
+                    title: "No Poster", 
+                    description: "Create and export a poster first.", 
+                    variant: "destructive" 
+                  });
+                  return;
+                }
+                
+                const link = document.createElement('a');
+                link.href = exportUrl;
+                link.download = 'poster.png';
+                link.click();
+              }}
+              disabled={!exportUrl || isExporting}
+            >
+              <Download className="w-4 h-4 mr-2" />
+              Download Poster
             </Button>
             <Button 
               className="w-full" 
