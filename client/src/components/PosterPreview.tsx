@@ -79,9 +79,8 @@ export function PosterPreview({ poster, products }: PosterPreviewProps) {
                 </div>
                 <div className="flex-1 min-w-0">
                   <h3 className="font-bold text-slate-900 text-lg truncate">{product.name}</h3>
-                  <p className="text-slate-500 text-sm mb-1">Premium Quality</p>
-                  <div className="inline-block bg-primary text-white px-3 py-1 rounded-full font-bold shadow-md shadow-primary/20">
-                    ${Number(product.price).toFixed(2)}
+                  <p className="text-slate-500 text-sm mb-1">Premium Quality</p>                  <div className="inline-block bg-primary text-white px-3 py-1 rounded-full font-bold shadow-md shadow-primary/20">
+                    Special offer
                   </div>
                 </div>
               </motion.div>

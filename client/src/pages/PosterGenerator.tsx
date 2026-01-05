@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useCreatePoster, exportPoster, type ProductInput } from "@/hooks/use-posters";
-import { useProducts, useImportProducts } from "@/hooks/use-products";
+import { useImportProducts } from "@/hooks/use-products";
 import { useBackgrounds } from "@/hooks/use-backgrounds";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,57 +24,72 @@ const templates: Template[] = [
 function createEmptyProduct(): ProductInput {
   return {
     artikelNr: "",
-    price: "",
     image: null,
   };
 }
 
 // Step 3: ProductInput component for dynamic rendering
-function ProductInput({ 
-  index, 
-  value, 
-  onChange 
-}: { 
-  index: number; 
-  value: ProductInput; 
+function ProductInput({
+  index,
+  value,
+  onChange,
+  toast,
+}: {
+  index: number;
+  value: ProductInput;
   onChange: (updated: ProductInput) => void;
+  toast: any;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const handleUploadClick = async () => {
+    // Copy article number to clipboard if it exists
+    if (value.artikelNr.trim()) {
+      try {
+        await navigator.clipboard.writeText(value.artikelNr);
+        toast({
+          title: "Article number copied to clipboard",
+          description: `${value.artikelNr} is ready to paste`,
+        });
+      } catch (error) {
+        // Fallback if clipboard API fails
+        console.warn('Clipboard write failed:', error);
+      }
+    }
+    
+    // Trigger file dialog
+    fileInputRef.current?.click();
+  };
+
   return (
     <div className="space-y-3 p-3 bg-slate-50 rounded-lg">
-      <div className="flex gap-2">
+      <div className="flex items-end gap-2">
         <div className="flex-1 space-y-1.5">
           <Label className="text-xs text-muted-foreground">Article #{index + 1}</Label>
-          <Input 
+          <Input
             value={value.artikelNr}
-            onChange={(e) => onChange({ ...value, artikelNr: e.target.value })}
-            placeholder="Article number"
-            className="text-xs"
+            readOnly
+            placeholder=""
+            className="text-xs bg-white"
           />
         </div>
-        <div className="flex-1 space-y-1.5">
-          <Label className="text-xs text-muted-foreground">Price</Label>
-          <Input 
-            type="number"
-            value={value.price}
-            onChange={(e) => onChange({ 
-              ...value, 
-              price: e.target.value ? Number(e.target.value) : "" 
-            })}
-            placeholder="0.00"
-            className="text-xs"
-          />
+
+        {/* Price field removed (no longer required) */}
+        <div className="space-y-1.5 flex-none">
+          <Label className="text-xs text-muted-foreground opacity-0 select-none">.</Label>
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-[150px] text-xs"
+            onClick={handleUploadClick}
+            disabled={!value.artikelNr.trim()}
+            title={!value.artikelNr.trim() ? "Import CSV to auto-fill article numbers first" : undefined}
+          >
+            {value.image ? "✓ Image" : "Upload Image"}
+          </Button>
         </div>
       </div>
-      <Button 
-        variant="outline"
-        size="sm"
-        className="w-full text-xs"
-        onClick={() => fileInputRef.current?.click()}
-      >
-        {value.image ? "✓ Image" : "Upload Image"}
-      </Button>
+
       <input
         ref={fileInputRef}
         type="file"
@@ -93,7 +108,6 @@ function ProductInput({
 
 export default function PosterGenerator() {
   const { backgrounds, generateBackground, uploadBackground, isGenerating, isUploading } = useBackgrounds();
-  const { data: availableProducts = [] } = useProducts();
   const { mutate: createPoster, isPending: isCreating } = useCreatePoster();
   const { mutate: importProducts, isPending: isImporting } = useImportProducts();
   const { toast } = useToast();
@@ -168,17 +182,11 @@ export default function PosterGenerator() {
     uploadBackground(file);
   };
 
-  const handleProductImageUpload = (index: number) => {
-    return (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (!file) return;
-      updateProduct(index, { image: file });
-    };
-  };
-
-  const handleCSVUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleCSVUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    // Keep backend import (if you rely on /api/products later), but also auto-fill artikelNr locally.
     const formData = new FormData();
     formData.append("file", file);
     importProducts(formData, {
@@ -187,8 +195,134 @@ export default function PosterGenerator() {
       },
       onError: () => {
         toast({ title: "Import Error", description: "Failed to import CSV file.", variant: "destructive" });
-      }
+      },
     });
+
+    if (!selectedTemplate) return;
+
+    const readText = (f: File) =>
+      new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result ?? ""));
+        reader.onerror = () => reject(reader.error ?? new Error("Failed to read file"));
+        reader.readAsText(f);
+      });
+
+    const parseCsvLine = (line: string, delimiter: string) => {
+      const out: string[] = [];
+      let cur = "";
+      let inQuotes = false;
+
+      for (let i = 0; i < line.length; i++) {
+        const ch = line[i];
+
+        if (ch === '"') {
+          // Handle escaped quotes ("")
+          if (inQuotes && line[i + 1] === '"') {
+            cur += '"';
+            i++;
+          } else {
+            inQuotes = !inQuotes;
+          }
+          continue;
+        }
+
+        if (!inQuotes && ch === delimiter) {
+          out.push(cur);
+          cur = "";
+          continue;
+        }
+
+        cur += ch;
+      }
+      out.push(cur);
+      return out.map((s) => s.trim());
+    };
+
+    (async () => {
+      try {
+        const raw = await readText(file);
+        const lines = raw
+          .split(/\r?\n/)
+          .map((l) => l.trim())
+          .filter(Boolean);
+
+        if (lines.length < 2) {
+          toast({
+            title: "CSV Error",
+            description: "CSV must contain a header row and at least 1 data row.",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        // Detect delimiter from header line
+        const headerLine = lines[0];
+        const delimiters = [",", ";", "	"];
+        const delimiter =
+          delimiters
+            .map((d) => ({ d, c: (headerLine.split(d).length - 1) }))
+            .sort((a, b) => b.c - a.c)[0]?.d ?? ",";
+
+        const header = parseCsvLine(headerLine, delimiter);
+        const artikelIdx = header.findIndex((h) => h === "artikelNr");
+
+        if (artikelIdx === -1) {
+          toast({
+            title: "CSV Error",
+            description: 'Missing required column "artikelNr" in the header row.',
+            variant: "destructive",
+          });
+          return;
+        }
+
+        const rows = lines.slice(1).map((line) => parseCsvLine(line, delimiter));
+        const artikelNrs = rows
+          .map((cols) => (cols[artikelIdx] ?? "").trim())
+          .filter(Boolean);
+
+        if (artikelNrs.length === 0) {
+          toast({
+            title: "CSV Error",
+            description: 'No values found under the "artikelNr" column.',
+            variant: "destructive",
+          });
+          return;
+        }
+
+        const needed = selectedTemplate.max_products;
+        const picked = artikelNrs.slice(0, needed);
+
+        if (picked.length < needed) {
+          toast({
+            title: "CSV Warning",
+            description: `Template expects ${needed} products but CSV has only ${picked.length} usable rows. The remaining slots will stay empty.`,
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: "Article Numbers Filled",
+            description: `Auto-filled ${picked.length} article numbers from CSV.`,
+          });
+        }
+
+        // Fill artikelNr slots; keep any already selected images in place
+        setProducts((prev) =>
+          Array.from({ length: needed }, (_, i) => ({
+            artikelNr: picked[i] ?? "",
+            image: prev[i]?.image ?? null,
+          }))
+        );
+
+        // Reset export when inputs change
+        setExportUrl(null);
+      } catch {
+        toast({ title: "Import Error", description: "Failed to parse CSV file.", variant: "destructive" });
+      } finally {
+        // allow re-uploading the same file
+        if (e.target) e.target.value = "";
+      }
+    })();
   };
 
   const handleCreatePoster = () => {
@@ -220,15 +354,11 @@ export default function PosterGenerator() {
       return;
     }
 
-    // Validate every product entry has artikelNr, salePrice, and imageFile
+    // Validate every product entry has artikelNr and imageFile
     for (let i = 0; i < selectedTemplate.max_products; i++) {
       const product = products[i];
       if (!product.artikelNr.trim()) {
         toast({ title: "Missing Article Number", description: `Product ${i + 1} needs an article number.`, variant: "destructive" });
-        return;
-      }
-      if (!product.price || Number(product.price) <= 0) {
-        toast({ title: "Missing Price", description: `Product ${i + 1} needs a valid price.`, variant: "destructive" });
         return;
       }
       if (!product.image) {
@@ -443,6 +573,25 @@ export default function PosterGenerator() {
             {/* Products */}
             <section className="space-y-4">
               <Label className="text-base font-semibold">Products</Label>
+              <Button 
+                className="w-full"
+                size="sm"
+                variant="outline"
+                onClick={() => csvFileInputRef.current?.click()}
+                disabled={isImporting}
+              >
+                {isImporting ? (
+                  <>
+                    <Loader2 className="w-3 h-3 mr-2 animate-spin" />
+                    Importing...
+                  </>
+                ) : (
+                  <>
+                    <Upload className="w-3 h-3 mr-2" />
+                    Import CSV
+                  </>
+                )}
+              </Button>
               {/* Step 3: Render inputs dynamically */}
               {products.map((product, index) => (
                 <ProductInput
@@ -450,6 +599,7 @@ export default function PosterGenerator() {
                   index={index}
                   value={product}
                   onChange={(updated) => updateProduct(index, updated)}
+                  toast={toast}
                 />
               ))}
             </section>
@@ -502,24 +652,6 @@ export default function PosterGenerator() {
             >
               <Download className="w-4 h-4 mr-2" />
               Download Poster
-            </Button>
-            <Button 
-              className="w-full" 
-              variant="outline"
-              onClick={() => csvFileInputRef.current?.click()}
-              disabled={isImporting}
-            >
-              {isImporting ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Importing...
-                </>
-              ) : (
-                <>
-                  <Upload className="w-4 h-4 mr-2" />
-                  Import Products CSV
-                </>
-              )}
             </Button>
             <input
               ref={csvFileInputRef}

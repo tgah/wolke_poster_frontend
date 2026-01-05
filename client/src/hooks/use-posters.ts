@@ -6,7 +6,6 @@ import { api, type Poster } from "@/types/api";
 
 export type ProductInput = {
   artikelNr: string;
-  price: number | "";
   image: File | null;
 };
 
@@ -68,7 +67,6 @@ export function usePosters() {
       for (let i = 0; i < input.maxProducts; i++) {
         const product = input.products[i];
         form.append(`artikel_nr_${i}`, product.artikelNr);
-        form.append(`sale_price_${i}`, product.price.toString());
         form.append(`product_image_${i}`, product.image!);
       }
 
