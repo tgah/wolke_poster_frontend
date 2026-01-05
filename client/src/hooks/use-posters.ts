@@ -115,3 +115,41 @@ export function useCreatePoster() {
   const { createPoster, isCreating } = usePosters();
   return { mutate: createPoster, isPending: isCreating };
 }
+
+/**
+ * Hook to get a specific poster by ID
+ */
+export function usePoster(id: string) {
+  return useQuery({
+    queryKey: ["poster", id],
+    queryFn: async () => {
+      const res = await apiFetch(api.posters.get.path.replace(':id', id), {
+        method: api.posters.get.method,
+      });
+      if (!res.ok) throw new Error("Failed to fetch poster");
+      return (await res.json()) as Poster;
+    },
+    enabled: !!id,
+  });
+}
+
+/**
+ * Export poster to get downloadable URL
+ */
+export async function exportPoster(posterId: string) {
+  const res = await apiFetch(api.posters.export.path.replace(':id', posterId), {
+    method: api.posters.export.method,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      format: "png",
+      resolution: "digital",
+    }),
+  });
+
+  if (!res.ok) {
+    const errorText = await res.text();
+    throw new Error(`Export failed: ${errorText}`);
+  }
+
+  return (await res.json()) as { asset_id: string; url: string; format: string };
+}

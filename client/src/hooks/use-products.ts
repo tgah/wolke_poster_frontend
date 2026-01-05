@@ -6,11 +6,13 @@ export function useProducts() {
   return useQuery({
     queryKey: [api.products.list.path],
     queryFn: async () => {
-      const res = await apiFetch(api.products.list.path, {
+      // Backend expects limit parameter for max_products
+      const res = await apiFetch(`${api.products.list.path}?limit=10`, {
         method: api.products.list.method,
       });
       if (!res.ok) throw new Error("Failed to fetch products");
-      return (await res.json()) as Product[];
+      const data = await res.json();
+      return data.products || data; // Handle both array and object response
     },
   });
 }

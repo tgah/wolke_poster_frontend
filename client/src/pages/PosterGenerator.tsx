@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { useCreatePoster, type ProductInput } from "@/hooks/use-posters";
+import { useCreatePoster, exportPoster, type ProductInput } from "@/hooks/use-posters";
 import { useProducts, useImportProducts } from "@/hooks/use-products";
 import { useBackgrounds } from "@/hooks/use-backgrounds";
 import { Button } from "@/components/ui/button";
@@ -105,6 +105,8 @@ export default function PosterGenerator() {
   const [selectedBackgroundId, setSelectedBackgroundId] = useState<string | null>(null);
   const [saleTitle, setSaleTitle] = useState("Summer Sale");
   const [themeText, setThemeText] = useState("Summer beach vibes");
+  const [exportUrl, setExportUrl] = useState<string | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
   
   // Step 2: Normalize product state to an array
   const [products, setProducts] = useState<ProductInput[]>([]);
@@ -122,6 +124,27 @@ export default function PosterGenerator() {
       )
     );
   }, [selectedTemplate]);
+
+  // Auto-select newly generated backgrounds for better UX
+  useEffect(() => {
+    if (!backgrounds.length) return;
+
+    // Find the most recent ready background
+    const latestReady = [...backgrounds]
+      .reverse()
+      .find(bg => bg.status === "ready");
+
+    if (!latestReady) return;
+
+    // Auto-select if nothing is selected yet
+    // OR if the currently selected background is not ready
+    if (
+      !selectedBackgroundId ||
+      backgrounds.find(b => b.id === selectedBackgroundId)?.status !== "ready"
+    ) {
+      setSelectedBackgroundId(latestReady.id);
+    }
+  }, [backgrounds, selectedBackgroundId]);
 
   const updateProduct = (index: number, updated: Partial<ProductInput>) => {
     setProducts(prev => 
@@ -180,7 +203,7 @@ export default function PosterGenerator() {
       return;
     }
     const background = backgrounds.find(b => b.id === selectedBackgroundId);
-    if (!background || background.status !== 'completed') {
+    if (!background || background.status !== 'ready') {
       toast({ title: "Background Not Ready", description: "Please wait for background to complete or select a ready one.", variant: "destructive" });
       return;
     }
@@ -221,6 +244,35 @@ export default function PosterGenerator() {
       backgroundId: selectedBackgroundId,
       saleTitle,
       products,
+    }, {
+      onSuccess: async (poster) => {
+        try {
+          setIsExporting(true);
+          
+          const exportResult = await exportPoster(poster.id);
+          
+          setExportUrl(exportResult.url);
+          toast({ 
+            title: "Poster Ready", 
+            description: "Your poster has been generated successfully." 
+          });
+        } catch (err: any) {
+          toast({ 
+            title: "Export Failed", 
+            description: "Poster was created but export failed.", 
+            variant: "destructive" 
+          });
+        } finally {
+          setIsExporting(false);
+        }
+      },
+      onError: (error: any) => {
+        toast({ 
+          title: "Creation Failed", 
+          description: error.message || "Failed to create poster.", 
+          variant: "destructive" 
+        });
+      }
     });
   };
 
@@ -240,16 +292,32 @@ export default function PosterGenerator() {
       <main className="flex-1 flex min-w-0">
         {/* Center: Preview */}
         <div className="flex-1 relative border-r border-border bg-slate-50 flex items-center justify-center">
-          {selectedBackground?.url ? (
+          {exportUrl ? (
+            // Show final exported poster
             <motion.div 
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
-              className="relative bg-white aspect-[9/16] h-[90%] rounded-sm shadow-2xl overflow-hidden"
+              className="relative bg-white aspect-[297/420] h-[90%] max-h-full rounded-sm shadow-2xl overflow-hidden"
             >
               <img 
-                src={selectedBackground.url} 
+                src={exportUrl}
+                alt="Final Poster" 
+                className="absolute inset-0 w-full h-full object-cover"
+                onError={(e) => console.error('[preview] Final poster failed to load:', exportUrl, e)}
+              />
+            </motion.div>
+          ) : selectedBackground?.url ? (
+            // Show background preview if no poster exported yet
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="relative bg-white aspect-[297/420] h-[90%] max-h-full rounded-sm shadow-2xl overflow-hidden"
+            >
+              <img 
+                src={selectedBackground.url}
                 alt="Poster Background" 
                 className="absolute inset-0 w-full h-full object-cover"
+                onError={(e) => console.error('[preview] Image failed to load:', selectedBackground.url, e)}
               />
               <div className="relative z-10 w-full h-full p-8 flex flex-col justify-center">
                 <h2 className="text-4xl font-display font-bold text-white text-center drop-shadow-lg">
@@ -324,14 +392,17 @@ export default function PosterGenerator() {
 
               <div className="space-y-1.5">
                 <Label htmlFor="bg-select" className="text-xs text-muted-foreground">Select Background</Label>
-                <Select value={selectedBackgroundId || ""} onValueChange={setSelectedBackgroundId}>
+                <Select 
+                  value={selectedBackgroundId || ""} 
+                  onValueChange={setSelectedBackgroundId}
+                >
                   <SelectTrigger id="bg-select">
                     <SelectValue placeholder="Choose a background..." />
                   </SelectTrigger>
                   <SelectContent>
                     {backgrounds.map((bg) => (
                       <SelectItem key={bg.id} value={bg.id}>
-                        {bg.status === 'completed' ? '✓ Ready' : '⟳ Generating'} - {bg.id.substring(0, 8)}
+                        {bg.status === 'ready' ? '✓ Ready' : '⟳ Generating'} - {bg.id.substring(0, 8)}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -390,12 +461,17 @@ export default function PosterGenerator() {
               className="w-full" 
               variant="default"
               onClick={handleCreatePoster}
-              disabled={isCreating}
+              disabled={isCreating || isExporting}
             >
               {isCreating ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                   Creating...
+                </>
+              ) : isExporting ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Exporting...
                 </>
               ) : (
                 <>
@@ -403,6 +479,29 @@ export default function PosterGenerator() {
                   Create Poster
                 </>
               )}
+            </Button>
+            <Button 
+              className="w-full" 
+              variant="outline"
+              onClick={() => {
+                if (!exportUrl) {
+                  toast({ 
+                    title: "No Poster", 
+                    description: "Create and export a poster first.", 
+                    variant: "destructive" 
+                  });
+                  return;
+                }
+                
+                const link = document.createElement('a');
+                link.href = exportUrl;
+                link.download = 'poster.png';
+                link.click();
+              }}
+              disabled={!exportUrl || isExporting}
+            >
+              <Download className="w-4 h-4 mr-2" />
+              Download Poster
             </Button>
             <Button 
               className="w-full" 

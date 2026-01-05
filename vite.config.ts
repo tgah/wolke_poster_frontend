@@ -21,10 +21,16 @@ export default defineConfig({
     proxy: {
       // Proxy all /api requests to your separate backend server
       '/api': {
-        target: process.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000',
+        target: 'http://127.0.0.1:8000',
         changeOrigin: true,
         secure: false,
         rewrite: (path) => path.replace(/^\/api/, '')
+      },
+      // Proxy /assets requests to backend for background images
+      '/assets': {
+        target: 'http://127.0.0.1:8000',
+        changeOrigin: true,
+        secure: false,
       }
     }
   },

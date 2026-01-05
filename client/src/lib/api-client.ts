@@ -54,10 +54,48 @@ export async function apiFetch(input: RequestInfo | URL, init: RequestInit = {})
     headers.set("Authorization", `Bearer ${token}`);
   }
 
-  const res = await fetch(input, {
+  // ✅ Prefix backend base URL for relative paths like "/auth/login"
+  const baseUrl = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, "") || "";
+  const url =
+    typeof input === "string" && input.startsWith("/")
+      ? `${baseUrl}${input}`
+      : input;
+
+  const method = init.method || "GET";
+  
+  // Log request
+  console.log(`[api] REQUEST ${method} ${url}`);
+  if (init.body) {
+    if (init.body instanceof FormData) {
+      console.log(`[api] REQUEST BODY ${method} ${url} -> [FormData]`);
+    } else {
+      console.log(`[api] REQUEST BODY ${method} ${url} -> ${init.body}`);
+    }
+  }
+
+  const res = await fetch(url, {
     ...init,
     headers,
   });
+
+  // Log response
+  console.log(`[api] RESPONSE ${method} ${url} -> ${res.status}`);
+  
+  // Clone response to read body for logging without consuming original
+  const clone = res.clone();
+  try {
+    const responseText = await clone.text();
+    if (responseText) {
+      try {
+        const responseJson = JSON.parse(responseText);
+        console.log(`[api] RESPONSE BODY ${method} ${url} ->`, responseJson);
+      } catch {
+        console.log(`[api] RESPONSE BODY ${method} ${url} -> ${responseText}`);
+      }
+    }
+  } catch (error) {
+    console.log(`[api] RESPONSE BODY ${method} ${url} -> [Error reading response]`);
+  }
 
   if (res.status === 401) {
     // Token invalid/expired

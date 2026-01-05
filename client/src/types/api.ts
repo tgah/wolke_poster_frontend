@@ -9,28 +9,13 @@ export const api = {
       method: 'GET' as const,
       path: '/api/auth/me',
     },
-    logout: {
-      method: 'POST' as const,
-      path: '/api/auth/logout',
-    }
+    // Note: backend has no logout endpoint - logout is client-side only
   },
   backgrounds: {
-    list: {
-      method: 'GET' as const,
-      path: '/api/backgrounds',
-    },
-    get: {
-      method: 'GET' as const,
-      path: '/api/backgrounds/:id',
-    },
-    generate: {
-      method: 'POST' as const,
-      path: '/api/backgrounds/generate',
-    },
-    upload: {
-      method: 'POST' as const,
-      path: '/api/backgrounds/upload',
-    },
+    generate: { method: "POST" as const, path: "/api/backgrounds/generate" },
+    get:      { method: "GET"  as const, path: "/api/backgrounds/:id" },
+    list:     { method: "GET"  as const, path: "/api/backgrounds" },
+    upload:   { method: "POST" as const, path: "/api/backgrounds/upload" },
   },
   products: {
     list: {
@@ -51,6 +36,10 @@ export const api = {
       method: 'GET' as const,
       path: '/api/posters/:id',
     },
+    export: {
+      method: 'POST' as const,
+      path: '/api/posters/:id/export',
+    },
   },
 };
 
@@ -62,16 +51,18 @@ export type LoginInput = {
 
 export type Background = {
   id: string;
-  status: "pending" | "processing" | "completed" | "failed";
+  status: "generating" | "pending" | "processing" | "ready" | "failed";
   url?: string;
   created_at?: string;
 };
 
 export type Product = {
-  id: number;
-  name: string;
-  price: string;
-  imagePath?: string;
+  artikelNr: string;
+  chineseName?: string;
+  germanName?: string;
+  weight?: string;
+  oldPrice?: number;
+  newPrice: number;
 };
 
 export type Poster = {
