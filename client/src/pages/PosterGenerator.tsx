@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Wand2, Download, Loader2, Check, Upload } from "lucide-react";
+import { Wand2, Download, Loader2, Check, Upload, Cloud } from "lucide-react";
 import { motion } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
 
@@ -53,10 +53,10 @@ function ProductInput({
         });
       } catch (error) {
         // Fallback if clipboard API fails
-        console.warn('Clipboard write failed:', error);
+        console.warn("Clipboard write failed:", error);
       }
     }
-    
+
     // Trigger file dialog
     fileInputRef.current?.click();
   };
@@ -66,12 +66,7 @@ function ProductInput({
       <div className="flex items-end gap-2">
         <div className="flex-1 space-y-1.5">
           <Label className="text-xs text-muted-foreground">Article #{index + 1}</Label>
-          <Input
-            value={value.artikelNr}
-            readOnly
-            placeholder=""
-            className="text-xs bg-white"
-          />
+          <Input value={value.artikelNr} readOnly placeholder="" className="text-xs bg-white" />
         </div>
 
         {/* Price field removed (no longer required) */}
@@ -121,21 +116,19 @@ export default function PosterGenerator() {
   const [themeText, setThemeText] = useState("Summer beach vibes");
   const [exportUrl, setExportUrl] = useState<string | null>(null);
   const [isExporting, setIsExporting] = useState(false);
-  
+
   // Step 2: Normalize product state to an array
   const [products, setProducts] = useState<ProductInput[]>([]);
 
   // Step 1: Ensure selected template exposes max_products
-  const selectedTemplate = templates.find(t => t.key === templateKey);
+  const selectedTemplate = templates.find((t) => t.key === templateKey);
 
   // Step 2: On template change, normalize product array
   useEffect(() => {
     if (!selectedTemplate) return;
-    
-    setProducts(prev =>
-      Array.from({ length: selectedTemplate.max_products }, (_, i) =>
-        prev[i] ?? createEmptyProduct()
-      )
+
+    setProducts((prev) =>
+      Array.from({ length: selectedTemplate.max_products }, (_, i) => prev[i] ?? createEmptyProduct())
     );
   }, [selectedTemplate]);
 
@@ -144,28 +137,19 @@ export default function PosterGenerator() {
     if (!backgrounds.length) return;
 
     // Find the most recent ready background
-    const latestReady = [...backgrounds]
-      .reverse()
-      .find(bg => bg.status === "ready");
+    const latestReady = [...backgrounds].reverse().find((bg) => bg.status === "ready");
 
     if (!latestReady) return;
 
     // Auto-select if nothing is selected yet
     // OR if the currently selected background is not ready
-    if (
-      !selectedBackgroundId ||
-      backgrounds.find(b => b.id === selectedBackgroundId)?.status !== "ready"
-    ) {
+    if (!selectedBackgroundId || backgrounds.find((b) => b.id === selectedBackgroundId)?.status !== "ready") {
       setSelectedBackgroundId(latestReady.id);
     }
   }, [backgrounds, selectedBackgroundId]);
 
   const updateProduct = (index: number, updated: Partial<ProductInput>) => {
-    setProducts(prev => 
-      prev.map((product, i) => 
-        i === index ? { ...product, ...updated } : product
-      )
-    );
+    setProducts((prev) => prev.map((product, i) => (i === index ? { ...product, ...updated } : product)));
   };
 
   const handleGenerateBackground = () => {
@@ -182,7 +166,7 @@ export default function PosterGenerator() {
     uploadBackground(file);
   };
 
-    const handleCSVUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleCSVUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -259,10 +243,9 @@ export default function PosterGenerator() {
         // Detect delimiter from header line
         const headerLine = lines[0];
         const delimiters = [",", ";", "	"];
-        const delimiter =
-          delimiters
-            .map((d) => ({ d, c: (headerLine.split(d).length - 1) }))
-            .sort((a, b) => b.c - a.c)[0]?.d ?? ",";
+        const delimiter = delimiters
+          .map((d) => ({ d, c: headerLine.split(d).length - 1 }))
+          .sort((a, b) => b.c - a.c)[0]?.d ?? ",";
 
         const header = parseCsvLine(headerLine, delimiter);
         const artikelIdx = header.findIndex((h) => h === "artikelNr");
@@ -336,9 +319,13 @@ export default function PosterGenerator() {
       toast({ title: "Select Background", description: "Please select or generate a background.", variant: "destructive" });
       return;
     }
-    const background = backgrounds.find(b => b.id === selectedBackgroundId);
-    if (!background || background.status !== 'ready') {
-      toast({ title: "Background Not Ready", description: "Please wait for background to complete or select a ready one.", variant: "destructive" });
+    const background = backgrounds.find((b) => b.id === selectedBackgroundId);
+    if (!background || background.status !== "ready") {
+      toast({
+        title: "Background Not Ready",
+        description: "Please wait for background to complete or select a ready one.",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -350,7 +337,11 @@ export default function PosterGenerator() {
 
     // Validate products array length equals max_products
     if (products.length !== selectedTemplate.max_products) {
-      toast({ title: "Product Count Mismatch", description: `Template requires exactly ${selectedTemplate.max_products} products.`, variant: "destructive" });
+      toast({
+        title: "Product Count Mismatch",
+        description: `Template requires exactly ${selectedTemplate.max_products} products.`,
+        variant: "destructive",
+      });
       return;
     }
 
@@ -358,96 +349,116 @@ export default function PosterGenerator() {
     for (let i = 0; i < selectedTemplate.max_products; i++) {
       const product = products[i];
       if (!product.artikelNr.trim()) {
-        toast({ title: "Missing Article Number", description: `Product ${i + 1} needs an article number.`, variant: "destructive" });
+        toast({
+          title: "Missing Article Number",
+          description: `Product ${i + 1} needs an article number.`,
+          variant: "destructive",
+        });
         return;
       }
       if (!product.image) {
-        toast({ title: "Missing Product Image", description: `Product ${i + 1} needs an image.`, variant: "destructive" });
+        toast({
+          title: "Missing Product Image",
+          description: `Product ${i + 1} needs an image.`,
+          variant: "destructive",
+        });
         return;
       }
     }
 
     // Call create-poster mutation with validated data
-    createPoster({
-      templateKey: selectedTemplate.key,
-      maxProducts: selectedTemplate.max_products,
-      backgroundId: selectedBackgroundId,
-      saleTitle,
-      products,
-    }, {
-      onSuccess: async (poster) => {
-        try {
-          setIsExporting(true);
-          
-          const exportResult = await exportPoster(poster.id);
-          
-          setExportUrl(exportResult.url);
-          toast({ 
-            title: "Poster Ready", 
-            description: "Your poster has been generated successfully." 
-          });
-        } catch (err: any) {
-          toast({ 
-            title: "Export Failed", 
-            description: "Poster was created but export failed.", 
-            variant: "destructive" 
-          });
-        } finally {
-          setIsExporting(false);
-        }
+    createPoster(
+      {
+        templateKey: selectedTemplate.key,
+        maxProducts: selectedTemplate.max_products,
+        backgroundId: selectedBackgroundId,
+        saleTitle,
+        products,
       },
-      onError: (error: any) => {
-        toast({ 
-          title: "Creation Failed", 
-          description: error.message || "Failed to create poster.", 
-          variant: "destructive" 
-        });
+      {
+        onSuccess: async (poster) => {
+          try {
+            setIsExporting(true);
+
+            const exportResult = await exportPoster(poster.id);
+
+            setExportUrl(exportResult.url);
+            toast({
+              title: "Poster Ready",
+              description: "Your poster has been generated successfully.",
+            });
+          } catch (err: any) {
+            toast({
+              title: "Export Failed",
+              description: "Poster was created but export failed.",
+              variant: "destructive",
+            });
+          } finally {
+            setIsExporting(false);
+          }
+        },
+        onError: (error: any) => {
+          toast({
+            title: "Creation Failed",
+            description: error.message || "Failed to create poster.",
+            variant: "destructive",
+          });
+        },
       }
-    });
+    );
   };
 
-  const selectedBackground = backgrounds.find(b => b.id === selectedBackgroundId);
+  const selectedBackground = backgrounds.find((b) => b.id === selectedBackgroundId);
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-background">
-      {/* Left Sidebar */}
-      <div className="w-[280px] bg-white border-r border-border shrink-0">
+      {/* Left Sidebar (cosmetic only) */}
+      <div className="w-[280px] bg-white border-r border-border shrink-0 flex flex-col">
         <div className="p-4 border-b border-border">
-          <h1 className="font-display text-xl font-bold">Poster Generator</h1>
-          <p className="text-sm text-muted-foreground">Create AI-powered marketing posters</p>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-gradient-to-br from-sky-400 to-sky-500 rounded-xl flex items-center justify-center shadow-lg shadow-sky-400/40">
+              <Cloud className="w-5 h-5 text-white" />
+            </div>
+
+            <span className="text-lg font-display font-bold text-slate-900">Wolke AI</span>
+          </div>
         </div>
+
+        <nav className="p-3">
+          <div className="rounded-lg bg-slate-100 px-3 py-2 text-sm font-medium text-slate-900">Poster Generator</div>
+        </nav>
       </div>
 
       {/* Main Content Area */}
       <main className="flex-1 flex min-w-0">
-        {/* Center: Preview */}
-        <div className="flex-1 relative border-r border-border bg-slate-50 flex items-center justify-center">
+        {/* Center: Preview (cosmetic only: subtle blue gradient + slightly stronger shadow) */}
+        <div className="flex-1 relative border-r border-border bg-gradient-to-b from-slate-50 via-blue-50/80 to-slate-200 flex items-center justify-center">
           {exportUrl ? (
             // Show final exported poster
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
-              className="relative bg-white aspect-[297/420] h-[90%] max-h-full rounded-sm shadow-2xl overflow-hidden"
+              className="relative bg-white aspect-[297/420] h-[90%] max-h-full rounded-sm shadow-2xl shadow-slate-400/30 overflow-hidden"
             >
-              <img 
+              <img
                 src={exportUrl}
-                alt="Final Poster" 
+                alt="Final Poster"
                 className="absolute inset-0 w-full h-full object-cover"
-                onError={(e) => console.error('[preview] Final poster failed to load:', exportUrl, e)}
+                onError={(e) => console.error("[preview] Final poster failed to load:", exportUrl, e)}
               />
             </motion.div>
           ) : selectedBackground?.url ? (
             // Show background preview if no poster exported yet
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
-              className="relative bg-white aspect-[297/420] h-[90%] max-h-full rounded-sm shadow-2xl overflow-hidden"
+              className="relative bg-white aspect-[297/420] h-[90%] max-h-full rounded-sm shadow-2xl shadow-blue-500/20 overflow-hidden"
             >
-              <img 
+              <img
                 src={selectedBackground.url}
-                alt="Poster Background" 
+                alt="Poster Background"
                 className="absolute inset-0 w-full h-full object-cover"
-                onError={(e) => console.error('[preview] Image failed to load:', selectedBackground.url, e)}
+                onError={(e) => console.error("[preview] Image failed to load:", selectedBackground.url, e)}
               />
               <div className="relative z-10 w-full h-full p-8 flex flex-col justify-center">
                 <h2 className="text-4xl font-display font-bold text-white text-center drop-shadow-lg">
@@ -475,7 +486,9 @@ export default function PosterGenerator() {
                 <Wand2 className="w-4 h-4 text-primary" />
               </div>
               <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 space-y-3">
-                <Label htmlFor="theme" className="text-xs uppercase text-muted-foreground font-bold tracking-wider">Theme</Label>
+                <Label htmlFor="theme" className="text-xs uppercase text-muted-foreground font-bold tracking-wider">
+                  Theme
+                </Label>
                 <textarea
                   id="theme"
                   className="w-full min-h-[60px] p-3 rounded-lg border border-input text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
@@ -484,7 +497,7 @@ export default function PosterGenerator() {
                   onChange={(e) => setThemeText(e.target.value)}
                 />
                 <div className="flex gap-2">
-                  <Button 
+                  <Button
                     className="flex-1 bg-gradient-to-r from-teal-400 to-blue-500 text-white border-0 text-sm"
                     onClick={handleGenerateBackground}
                     disabled={isGenerating || themeText.length < 5}
@@ -501,7 +514,7 @@ export default function PosterGenerator() {
                       </>
                     )}
                   </Button>
-                  <Button 
+                  <Button
                     className="px-3 text-sm"
                     variant="outline"
                     onClick={() => bgFileInputRef.current?.click()}
@@ -521,18 +534,17 @@ export default function PosterGenerator() {
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="bg-select" className="text-xs text-muted-foreground">Select Background</Label>
-                <Select 
-                  value={selectedBackgroundId || ""} 
-                  onValueChange={setSelectedBackgroundId}
-                >
+                <Label htmlFor="bg-select" className="text-xs text-muted-foreground">
+                  Select Background
+                </Label>
+                <Select value={selectedBackgroundId || ""} onValueChange={setSelectedBackgroundId}>
                   <SelectTrigger id="bg-select">
                     <SelectValue placeholder="Choose a background..." />
                   </SelectTrigger>
                   <SelectContent>
                     {backgrounds.map((bg) => (
                       <SelectItem key={bg.id} value={bg.id}>
-                        {bg.status === 'ready' ? '✓ Ready' : '⟳ Generating'} - {bg.id.substring(0, 8)}
+                        {bg.status === "ready" ? "✓ Ready" : "⟳ Generating"} - {bg.id.substring(0, 8)}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -545,15 +557,15 @@ export default function PosterGenerator() {
               <Label className="text-base font-semibold">Poster Details</Label>
               <div className="space-y-3">
                 <div className="space-y-1.5">
-                  <Label htmlFor="title" className="text-xs text-muted-foreground">Sale Title</Label>
-                  <Input 
-                    id="title" 
-                    value={saleTitle}
-                    onChange={(e) => setSaleTitle(e.target.value)}
-                  />
+                  <Label htmlFor="title" className="text-xs text-muted-foreground">
+                    Sale Title
+                  </Label>
+                  <Input id="title" value={saleTitle} onChange={(e) => setSaleTitle(e.target.value)} />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="template" className="text-xs text-muted-foreground">Template</Label>
+                  <Label htmlFor="template" className="text-xs text-muted-foreground">
+                    Template
+                  </Label>
                   <Select value={templateKey} onValueChange={(v: any) => setTemplateKey(v)}>
                     <SelectTrigger id="template">
                       <SelectValue />
@@ -573,7 +585,7 @@ export default function PosterGenerator() {
             {/* Products */}
             <section className="space-y-4">
               <Label className="text-base font-semibold">Products</Label>
-              <Button 
+              <Button
                 className="w-full"
                 size="sm"
                 variant="outline"
@@ -607,12 +619,7 @@ export default function PosterGenerator() {
 
           {/* Bottom Actions */}
           <div className="p-6 border-t border-border space-y-3">
-            <Button 
-              className="w-full" 
-              variant="default"
-              onClick={handleCreatePoster}
-              disabled={isCreating || isExporting}
-            >
+            <Button className="w-full" variant="default" onClick={handleCreatePoster} disabled={isCreating || isExporting}>
               {isCreating ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -630,22 +637,22 @@ export default function PosterGenerator() {
                 </>
               )}
             </Button>
-            <Button 
-              className="w-full" 
+            <Button
+              className="w-full"
               variant="outline"
               onClick={() => {
                 if (!exportUrl) {
-                  toast({ 
-                    title: "No Poster", 
-                    description: "Create and export a poster first.", 
-                    variant: "destructive" 
+                  toast({
+                    title: "No Poster",
+                    description: "Create and export a poster first.",
+                    variant: "destructive",
                   });
                   return;
                 }
-                
-                const link = document.createElement('a');
+
+                const link = document.createElement("a");
                 link.href = exportUrl;
-                link.download = 'poster.png';
+                link.download = "poster.png";
                 link.click();
               }}
               disabled={!exportUrl || isExporting}
@@ -653,13 +660,7 @@ export default function PosterGenerator() {
               <Download className="w-4 h-4 mr-2" />
               Download Poster
             </Button>
-            <input
-              ref={csvFileInputRef}
-              type="file"
-              accept=".csv"
-              className="hidden"
-              onChange={handleCSVUpload}
-            />
+            <input ref={csvFileInputRef} type="file" accept=".csv" className="hidden" onChange={handleCSVUpload} />
           </div>
         </div>
       </main>
