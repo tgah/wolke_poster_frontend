@@ -100,14 +100,7 @@ export function useAuth() {
 
   const logoutMutation = useMutation({
     mutationFn: async () => {
-      // Backend may or may not require this; still fine to call.
-      // Even if it fails, we still clear local session.
-      try {
-        await apiFetch(api.auth.logout.path, { method: api.auth.logout.method });
-      } catch {
-        // ignore
-      }
-
+      // Backend has no logout endpoint - logout is client-side only
       clearAccessToken();
       queryClient.clear();
       setLocation("/login");

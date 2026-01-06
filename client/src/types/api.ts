@@ -3,42 +3,42 @@ export const api = {
   auth: {
     login: {
       method: 'POST' as const,
-      path: '/auth/login',
+      path: '/api/auth/login',
     },
     me: {
       method: 'GET' as const,
-      path: '/auth/me',
+      path: '/api/auth/me',
     },
     // Note: backend has no logout endpoint - logout is client-side only
   },
   backgrounds: {
-    generate: { method: "POST" as const, path: "/backgrounds/generate" },
-    get:      { method: "GET"  as const, path: "/backgrounds/:id" },
-    list:     { method: "GET"  as const, path: "/backgrounds" },
-    upload:   { method: "POST" as const, path: "/backgrounds/upload" },
+    generate: { method: "POST" as const, path: "/api/backgrounds/generate" },
+    get:      { method: "GET"  as const, path: "/api/backgrounds/:id" },
+    list:     { method: "GET"  as const, path: "/api/backgrounds" },
+    upload:   { method: "POST" as const, path: "/api/backgrounds/upload" },
   },
   products: {
     list: {
       method: 'GET' as const,
-      path: '/products',
+      path: '/api/products',
     },
     import: {
       method: 'POST' as const,
-      path: '/products/import',
+      path: '/api/products/import',
     },
   },
   posters: {
     create: {
       method: 'POST' as const,
-      path: '/posters',
+      path: '/api/posters',
     },
     get: {
       method: 'GET' as const,
-      path: '/posters/:id',
+      path: '/api/posters/:id',
     },
     export: {
       method: 'POST' as const,
-      path: '/posters/:id/export',
+      path: '/api/posters/:id/export',
     },
   },
 };

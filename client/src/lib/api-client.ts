@@ -54,12 +54,25 @@ export async function apiFetch(input: RequestInfo | URL, init: RequestInit = {})
     headers.set("Authorization", `Bearer ${token}`);
   }
 
-  // ✅ Prefix backend base URL for relative paths like "/auth/login"
-  const baseUrl = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, "") || "";
-  const url =
-    typeof input === "string" && input.startsWith("/")
-      ? `${baseUrl}${input}`
-      : input;
+  // Handle URL construction:
+  // - /api/* paths: use as-is (Vite proxy handles them)
+  // - other paths: prefix with VITE_API_BASE_URL
+  let url: RequestInfo | URL;
+  if (typeof input === "string") {
+    if (input.startsWith("/api/")) {
+      // Use /api paths as-is - Vite proxy will handle them
+      url = input;
+    } else if (input.startsWith("/")) {
+      // Prefix other relative paths with backend base URL
+      const baseUrl = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, "") || "";
+      url = `${baseUrl}${input}`;
+    } else {
+      // Absolute URLs or other formats - use as-is
+      url = input;
+    }
+  } else {
+    url = input;
+  }
 
   const method = init.method || "GET";
   
