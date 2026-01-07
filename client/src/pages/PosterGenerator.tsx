@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Wand2, Download, Loader2, Check, Upload, Cloud } from "lucide-react";
 import { motion } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
+import { getFullAssetUrl } from "@/lib/api-client";
 
 type Template = {
   key: "two_product" | "three_product";
@@ -441,7 +442,7 @@ export default function PosterGenerator() {
               className="relative bg-white aspect-[297/420] h-[90%] max-h-full rounded-sm shadow-2xl shadow-slate-400/30 overflow-hidden"
             >
               <img
-                src={exportUrl}
+                src={getFullAssetUrl(exportUrl)}
                 alt="Final Poster"
                 className="absolute inset-0 w-full h-full object-cover"
                 onError={(e) => console.error("[preview] Final poster failed to load:", exportUrl, e)}
@@ -455,7 +456,7 @@ export default function PosterGenerator() {
               className="relative bg-white aspect-[297/420] h-[90%] max-h-full rounded-sm shadow-2xl shadow-blue-500/20 overflow-hidden"
             >
               <img
-                src={selectedBackground.url}
+                src={getFullAssetUrl(selectedBackground.url)}
                 alt="Poster Background"
                 className="absolute inset-0 w-full h-full object-cover"
                 onError={(e) => console.error("[preview] Image failed to load:", selectedBackground.url, e)}

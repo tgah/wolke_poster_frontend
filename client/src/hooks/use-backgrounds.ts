@@ -1,7 +1,7 @@
 // client/src/hooks/use-backgrounds.ts
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { apiFetch } from "@/lib/api-client";
+import { apiFetch, getFullAssetUrl } from "@/lib/api-client";
 import { apiRequest } from "@/lib/queryClient";
 import { api, type Background } from "@/types/api";
 
@@ -18,7 +18,11 @@ async function pollBackground(id: string): Promise<Background> {
     });
 
     if (bg.status === "ready" && bg.url) {
-      return bg;
+      // Transform the URL to be a full URL if it's an /assets path
+      return {
+        ...bg,
+        url: getFullAssetUrl(bg.url),
+      };
     }
 
     if (bg.status === "failed") {
@@ -40,9 +44,15 @@ export function useBackgrounds() {
   const backgroundsQuery = useQuery({
     queryKey: ["backgrounds"],
     queryFn: async () => {
-      return apiRequest<Background[]>(api.backgrounds.list.path, {
+      const backgrounds = await apiRequest<Background[]>(api.backgrounds.list.path, {
         method: api.backgrounds.list.method,
       });
+
+      // Transform all background URLs to full URLs
+      return backgrounds.map(bg => ({
+        ...bg,
+        url: bg.url ? getFullAssetUrl(bg.url) : bg.url,
+      }));
     },
   });
 

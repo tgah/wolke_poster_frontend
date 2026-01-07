@@ -109,3 +109,26 @@ export async function apiFetch(input: RequestInfo | URL, init: RequestInit = {})
 
   return res;
 }
+
+/**
+ * Convert asset paths to full URLs.
+ * - If the path is already a full URL (starts with http/https), return as-is
+ * - If the path starts with /assets, prepend the API base URL
+ * - Otherwise, return the path unchanged
+ */
+export function getFullAssetUrl(assetPath: string | null | undefined): string {
+  if (!assetPath) return '';
+
+  // If already a full URL, return as-is
+  if (assetPath.startsWith('http://') || assetPath.startsWith('https://')) {
+    return assetPath;
+  }
+
+  // If it's an /assets path, prepend the API domain
+  if (assetPath.startsWith('/assets')) {
+    const baseUrl = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, "") || "";
+    return `${baseUrl}${assetPath}`;
+  }
+
+  return assetPath;
+}

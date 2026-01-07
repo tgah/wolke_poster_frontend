@@ -1,6 +1,7 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { Product, Poster } from "@shared/schema";
 import { Loader2 } from "lucide-react";
+import { getFullAssetUrl } from "../lib/api-client";
 
 interface PosterPreviewProps {
   poster: Poster;
@@ -21,9 +22,9 @@ export function PosterPreview({ poster, products }: PosterPreviewProps) {
       >
         {/* Background Image */}
         {poster.backgroundImageUrl ? (
-          <img 
-            src={poster.backgroundImageUrl} 
-            alt="Poster Background" 
+          <img
+            src={getFullAssetUrl(poster.backgroundImageUrl)}
+            alt="Poster Background"
             className="absolute inset-0 w-full h-full object-cover"
           />
         ) : (
@@ -71,8 +72,8 @@ export function PosterPreview({ poster, products }: PosterPreviewProps) {
               >
                 <div className="w-24 h-24 bg-slate-200 rounded-lg overflow-hidden shrink-0">
                   {/* Placeholder or actual image */}
-                  <img 
-                    src={product.imagePath || `https://placehold.co/200x200?text=${product.name}`} 
+                  <img
+                    src={getFullAssetUrl(product.imagePath) || `https://placehold.co/200x200?text=${product.name}`}
                     alt={product.name}
                     className="w-full h-full object-cover"
                   />
