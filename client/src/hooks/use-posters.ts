@@ -7,6 +7,7 @@ import { api, type Poster } from "@/types/api";
 export type ProductInput = {
   artikelNr: string;
   image: File | null;
+  salePrice?: number;
 };
 
 export type CreatePosterInput = {
@@ -68,6 +69,11 @@ export function usePosters() {
         const product = input.products[i];
         form.append(`artikel_nr_${i}`, product.artikelNr);
         form.append(`product_image_${i}`, product.image!);
+
+        // Add sale_price if available
+        if (product.salePrice !== undefined) {
+          form.append(`sale_price_${i}`, product.salePrice.toString());
+        }
       }
 
       const res = await apiFetch(api.posters.create.path, {
