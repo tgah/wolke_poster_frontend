@@ -1,12 +1,13 @@
 // client/src/hooks/use-posters.ts
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { apiFetch } from "@/lib/api-client";
+import { apiFetch, getFullAssetUrl } from "@/lib/api-client";
 import { api, type Poster } from "@/types/api";
 
 export type ProductInput = {
   artikelNr: string;
   image: File | null;
+  salePrice?: number;
 };
 
 export type CreatePosterInput = {
@@ -68,6 +69,11 @@ export function usePosters() {
         const product = input.products[i];
         form.append(`artikel_nr_${i}`, product.artikelNr);
         form.append(`product_image_${i}`, product.image!);
+
+        // Add sale_price if available
+        if (product.salePrice !== undefined) {
+          form.append(`sale_price_${i}`, product.salePrice.toString());
+        }
       }
 
       const res = await apiFetch(api.posters.create.path, {
@@ -149,5 +155,11 @@ export async function exportPoster(posterId: string) {
     throw new Error(`Export failed: ${errorText}`);
   }
 
-  return (await res.json()) as { asset_id: string; url: string; format: string };
+  const result = (await res.json()) as { asset_id: string; url: string; format: string };
+
+  // Transform the URL to be a full URL if it's an /assets path
+  return {
+    ...result,
+    url: getFullAssetUrl(result.url),
+  };
 }

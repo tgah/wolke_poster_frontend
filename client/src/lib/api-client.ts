@@ -54,25 +54,12 @@ export async function apiFetch(input: RequestInfo | URL, init: RequestInit = {})
     headers.set("Authorization", `Bearer ${token}`);
   }
 
-  // Handle URL construction:
-  // - /api/* paths: use as-is (Vite proxy handles them)
-  // - other paths: prefix with VITE_API_BASE_URL
-  let url: RequestInfo | URL;
-  if (typeof input === "string") {
-    if (input.startsWith("/api/")) {
-      // Use /api paths as-is - Vite proxy will handle them
-      url = input;
-    } else if (input.startsWith("/")) {
-      // Prefix other relative paths with backend base URL
-      const baseUrl = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, "") || "";
-      url = `${baseUrl}${input}`;
-    } else {
-      // Absolute URLs or other formats - use as-is
-      url = input;
-    }
-  } else {
-    url = input;
-  }
+  // ✅ Prefix backend base URL for relative paths like "/auth/login"
+  const baseUrl = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, "") || "";
+  const url =
+    typeof input === "string" && input.startsWith("/")
+      ? `${baseUrl}${input}`
+      : input;
 
   const method = init.method || "GET";
   
@@ -121,4 +108,27 @@ export async function apiFetch(input: RequestInfo | URL, init: RequestInit = {})
   }
 
   return res;
+}
+
+/**
+ * Convert asset paths to full URLs.
+ * - If the path is already a full URL (starts with http/https), return as-is
+ * - If the path starts with /assets, prepend the API base URL
+ * - Otherwise, return the path unchanged
+ */
+export function getFullAssetUrl(assetPath: string | null | undefined): string {
+  if (!assetPath) return '';
+
+  // If already a full URL, return as-is
+  if (assetPath.startsWith('http://') || assetPath.startsWith('https://')) {
+    return assetPath;
+  }
+
+  // If it's an /assets path, prepend the API domain
+  if (assetPath.startsWith('/assets')) {
+    const baseUrl = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, "") || "";
+    return `${baseUrl}${assetPath}`;
+  }
+
+  return assetPath;
 }

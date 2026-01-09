@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Wand2, Download, Loader2, Check, Upload, Cloud } from "lucide-react";
 import { motion } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
+import { getFullAssetUrl } from "@/lib/api-client";
 
 type Template = {
   key: "two_product" | "three_product";
@@ -25,6 +26,7 @@ function createEmptyProduct(): ProductInput {
   return {
     artikelNr: "",
     image: null,
+    salePrice: undefined,
   };
 }
 
@@ -69,7 +71,16 @@ function ProductInput({
           <Input value={value.artikelNr} readOnly placeholder="" className="text-xs bg-white" />
         </div>
 
-        {/* Price field removed (no longer required) */}
+        <div className="w-24 space-y-1.5">
+          <Label className="text-xs text-muted-foreground">Sale Price</Label>
+          <Input
+            value={value.salePrice !== undefined ? `€${value.salePrice.toFixed(2)}` : ""}
+            readOnly
+            placeholder="N/A"
+            className="text-xs bg-white"
+          />
+        </div>
+
         <div className="space-y-1.5 flex-none">
           <Label className="text-xs text-muted-foreground opacity-0 select-none">.</Label>
           <Button
@@ -249,6 +260,7 @@ export default function PosterGenerator() {
 
         const header = parseCsvLine(headerLine, delimiter);
         const artikelIdx = header.findIndex((h) => h === "artikelNr");
+        const newPriceIdx = header.findIndex((h) => h === "newPrice");
 
         if (artikelIdx === -1) {
           toast({
@@ -260,9 +272,16 @@ export default function PosterGenerator() {
         }
 
         const rows = lines.slice(1).map((line) => parseCsvLine(line, delimiter));
-        const artikelNrs = rows
-          .map((cols) => (cols[artikelIdx] ?? "").trim())
-          .filter(Boolean);
+
+        // Extract both artikelNr and newPrice
+        const productData = rows
+          .map((cols) => ({
+            artikelNr: (cols[artikelIdx] ?? "").trim(),
+            salePrice: newPriceIdx !== -1 ? parseFloat(cols[newPriceIdx] ?? "") : undefined,
+          }))
+          .filter((p) => p.artikelNr); // Only keep rows with artikelNr
+
+        const artikelNrs = productData.map((p) => p.artikelNr);
 
         if (artikelNrs.length === 0) {
           toast({
@@ -274,25 +293,26 @@ export default function PosterGenerator() {
         }
 
         const needed = selectedTemplate.max_products;
-        const picked = artikelNrs.slice(0, needed);
+        const pickedData = productData.slice(0, needed);
 
-        if (picked.length < needed) {
+        if (pickedData.length < needed) {
           toast({
             title: "CSV Warning",
-            description: `Template expects ${needed} products but CSV has only ${picked.length} usable rows. The remaining slots will stay empty.`,
+            description: `Template expects ${needed} products but CSV has only ${pickedData.length} usable rows. The remaining slots will stay empty.`,
             variant: "destructive",
           });
         } else {
           toast({
             title: "Article Numbers Filled",
-            description: `Auto-filled ${picked.length} article numbers from CSV.`,
+            description: `Auto-filled ${pickedData.length} article numbers from CSV.`,
           });
         }
 
-        // Fill artikelNr slots; keep any already selected images in place
+        // Fill artikelNr and salePrice slots; keep any already selected images in place
         setProducts((prev) =>
           Array.from({ length: needed }, (_, i) => ({
-            artikelNr: picked[i] ?? "",
+            artikelNr: pickedData[i]?.artikelNr ?? "",
+            salePrice: pickedData[i]?.salePrice,
             image: prev[i]?.image ?? null,
           }))
         );
@@ -441,7 +461,7 @@ export default function PosterGenerator() {
               className="relative bg-white aspect-[297/420] h-[90%] max-h-full rounded-sm shadow-2xl shadow-slate-400/30 overflow-hidden"
             >
               <img
-                src={exportUrl}
+                src={getFullAssetUrl(exportUrl)}
                 alt="Final Poster"
                 className="absolute inset-0 w-full h-full object-cover"
                 onError={(e) => console.error("[preview] Final poster failed to load:", exportUrl, e)}
@@ -455,7 +475,7 @@ export default function PosterGenerator() {
               className="relative bg-white aspect-[297/420] h-[90%] max-h-full rounded-sm shadow-2xl shadow-blue-500/20 overflow-hidden"
             >
               <img
-                src={selectedBackground.url}
+                src={getFullAssetUrl(selectedBackground.url)}
                 alt="Poster Background"
                 className="absolute inset-0 w-full h-full object-cover"
                 onError={(e) => console.error("[preview] Image failed to load:", selectedBackground.url, e)}
