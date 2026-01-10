@@ -25,9 +25,9 @@ export function useAuth() {
     queryFn: async () => {
       const res = await apiFetch(api.auth.me.path, { method: "GET" });
 
-      // apiFetch handles 401 redirect + token clearing globally.
+      // apiFetch handles 401/403 redirect + token clearing globally.
       if (!res.ok) {
-        // For non-401 errors, surface something useful
+        // For non-401/403 errors, surface something useful
         const { text, json } = await parseJsonSafely(res);
         const msg =
           json?.message ||

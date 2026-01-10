@@ -97,13 +97,15 @@ export async function apiFetch(input: RequestInfo | URL, init: RequestInit = {})
     console.log(`[api] RESPONSE BODY ${method} ${url} -> [Error reading response]`);
   }
 
-  if (res.status === 401) {
-    // Token invalid/expired
+  if (res.status === 401 || res.status === 403) {
+    // Token invalid/expired or forbidden - treat both as unauthenticated
     clearAccessToken();
 
+    // Use proper SPA navigation instead of window.location.href
     // Avoid redirect loops if already on login
     if (window.location.pathname !== "/login") {
-      window.location.href = "/login";
+      // For SPA routing, we'll dispatch a custom event that the app can listen to
+      window.dispatchEvent(new CustomEvent('auth-redirect', { detail: '/login' }));
     }
   }
 
